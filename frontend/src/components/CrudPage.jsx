@@ -15,7 +15,7 @@ import Badge from './Badge'
  *     refTable?, refValue?, refLabel?  // cho select động (khoá ngoại)
  *     required?: boolean, isAvatar?: boolean } // isAvatar: cột này hiển thị kèm avatar chữ cái đầu
  */
-export default function CrudPage({ title, table, columns, defaultOrder = 'created_at' }) {
+export default function CrudPage({ title, table, columns, defaultOrder }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -35,10 +35,14 @@ export default function CrudPage({ title, table, columns, defaultOrder = 'create
   async function loadRows() {
     setLoading(true)
     setError('')
-    const orderCol = columns.some((c) => c.key === defaultOrder) || defaultOrder === 'created_at'
+    const hasCreatedAt = columns.some((c) => c.key === 'created_at')
+    const orderCol = defaultOrder && columns.some((c) => c.key === defaultOrder)
       ? defaultOrder
-      : columns[0]?.key
-    const { data, error } = await supabase.from(table).select('*').order(orderCol, { ascending: false })
+      : hasCreatedAt
+        ? 'created_at'
+        : columns[0]?.key
+    const ascending = orderCol !== 'created_at'
+    const { data, error } = await supabase.from(table).select('*').order(orderCol, { ascending })
     if (error) setError(error.message)
     else setRows(data || [])
     setLoading(false)
