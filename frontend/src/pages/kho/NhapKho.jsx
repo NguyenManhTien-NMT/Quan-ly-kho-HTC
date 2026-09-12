@@ -124,13 +124,14 @@ export default function NhapKho() {
   const codeRefs = useRef([])
   const qtyRefs = useRef([])
   const priceRefs = useRef([])
+  const REFS_BY_COL = [codeRefs, qtyRefs, priceRefs] // 0=Mã NVL, 1=Số lượng, 2=Đơn giá
 
   // Bấm Tab ở ô Mã NVL -> nhảy xuống ô Mã NVL của dòng kế tiếp (thay vì nhảy
   // sang ô Số lượng bên phải như mặc định của trình duyệt), giống thao tác
   // nhập nhanh theo cột trong Excel. Tự thêm dòng mới nếu đang ở dòng cuối.
   function handleCodeKeyDown(e, idx) {
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      handleArrowNav(e, idx, codeRefs)
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      handleGridKeyDown(e, idx, 0)
       return
     }
     if (e.key === 'Tab' && !e.shiftKey) {
@@ -148,15 +149,32 @@ export default function NhapKho() {
     }
   }
 
-  // Mũi tên Lên/Xuống -> nhảy sang cùng cột ở dòng trước/sau, giá trị ở ô đến
-  // tự động được bôi đen (chọn toàn bộ) nhờ onFocus={selectAll} bên dưới, nên
-  // gõ số mới sẽ thay thế luôn giá trị cũ, giống thao tác trong Excel.
-  function handleArrowNav(e, idx, refsArray) {
+  // Điều hướng đủ 4 hướng kiểu Excel: Lên/Xuống luôn nhảy dòng; Trái/Phải chỉ
+  // nhảy sang ô kế bên khi giá trị hiện tại đang được bôi đen toàn bộ (tức
+  // chưa bắt đầu gõ sửa) — nếu đang gõ dở giữa chừng thì để trình duyệt tự xử
+  // lý di chuyển con trỏ trong ô như bình thường. Ô đến sẽ tự bôi đen (nhờ
+  // onFocus={selectAll}) để gõ số mới thay thế luôn giá trị cũ.
+  function handleGridKeyDown(e, rowIdx, colIdx) {
+    const el = e.target
+    const fullySelected = el.selectionStart === 0 && el.selectionEnd === (el.value ? el.value.length : 0)
+
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !fullySelected) return // đang gõ dở -> để trình duyệt tự lo
+
+    let targetRow = rowIdx
+    let targetCol = colIdx
+    if (e.key === 'ArrowUp') targetRow -= 1
+    else if (e.key === 'ArrowDown') targetRow += 1
+    else if (e.key === 'ArrowLeft') targetCol -= 1
+    else if (e.key === 'ArrowRight') targetCol += 1
+    else return
+
+    if (targetCol < 0 || targetCol > 2 || targetRow < 0) { e.preventDefault(); return }
+    const targetRefs = REFS_BY_COL[targetCol]
+    if (targetRow >= targetRefs.current.length) { e.preventDefault(); return }
+
     e.preventDefault()
-    const targetIdx = e.key === 'ArrowUp' ? idx - 1 : idx + 1
-    if (targetIdx < 0 || targetIdx >= refsArray.current.length) return
-    refsArray.current[targetIdx]?.focus()
-    refsArray.current[targetIdx]?.select?.()
+    targetRefs.current[targetRow]?.focus()
+    targetRefs.current[targetRow]?.select?.()
   }
 
   function selectAll(e) {
@@ -390,7 +408,7 @@ export default function NhapKho() {
                           type="text" inputMode="decimal" value={l.quantity}
                           onChange={(e) => updateLine(idx, 'quantity', e.target.value)}
                           onPaste={(e) => handlePasteCode(e, idx)}
-                          onKeyDown={(e) => (e.key === 'ArrowUp' || e.key === 'ArrowDown') && handleArrowNav(e, idx, qtyRefs)}
+                          onKeyDown={(e) => handleGridKeyDown(e, idx, 1)}
                           onFocus={selectAll}
                           className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                       </td>
@@ -400,7 +418,7 @@ export default function NhapKho() {
                           type="text" inputMode="decimal" value={l.unit_price}
                           onChange={(e) => updateLine(idx, 'unit_price', e.target.value)}
                           onPaste={(e) => handlePasteCode(e, idx)}
-                          onKeyDown={(e) => (e.key === 'ArrowUp' || e.key === 'ArrowDown') && handleArrowNav(e, idx, priceRefs)}
+                          onKeyDown={(e) => handleGridKeyDown(e, idx, 2)}
                           onFocus={selectAll}
                           className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                       </td>
