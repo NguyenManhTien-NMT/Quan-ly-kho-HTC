@@ -1,6 +1,3 @@
-# frontend/src/pages/kho/NhapKho.jsx
-
-```jsx
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, RefreshCw, Loader2, Trash2, ClipboardPaste } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
