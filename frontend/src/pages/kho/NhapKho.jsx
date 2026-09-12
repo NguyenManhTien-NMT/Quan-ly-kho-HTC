@@ -126,26 +126,12 @@ export default function NhapKho() {
   const priceRefs = useRef([])
   const REFS_BY_COL = [codeRefs, qtyRefs, priceRefs] // 0=Mã NVL, 1=Số lượng, 2=Đơn giá
 
-  // Bấm Tab ở ô Mã NVL -> nhảy xuống ô Mã NVL của dòng kế tiếp (thay vì nhảy
-  // sang ô Số lượng bên phải như mặc định của trình duyệt), giống thao tác
-  // nhập nhanh theo cột trong Excel. Tự thêm dòng mới nếu đang ở dòng cuối.
+  // Ô Mã NVL: chỉ can thiệp phím mũi tên (điều hướng 4 hướng kiểu Excel).
+  // Phím Tab để trình duyệt tự xử lý mặc định — đi tự nhiên sang phải
+  // (Mã NVL -> Số lượng -> Đơn giá), xem thêm xử lý auto-thêm dòng ở ô Đơn giá.
   function handleCodeKeyDown(e, idx) {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       handleGridKeyDown(e, idx, 0)
-      return
-    }
-    if (e.key === 'Tab' && !e.shiftKey) {
-      e.preventDefault()
-      setCreating((c) => {
-        if (idx + 1 >= c.lines.length) {
-          return { ...c, lines: [...c.lines, emptyLine()] }
-        }
-        return c
-      })
-      setTimeout(() => {
-        codeRefs.current[idx + 1]?.focus()
-        codeRefs.current[idx + 1]?.select?.()
-      }, 0)
     }
   }
 
@@ -179,6 +165,25 @@ export default function NhapKho() {
 
   function selectAll(e) {
     e.target.select()
+  }
+
+  // Ô Đơn giá (ô cuối cùng bên phải của mỗi dòng): nếu đang ở dòng cuối cùng
+  // và bấm Tab, tự thêm 1 dòng mới rồi nhảy xuống ô Mã NVL của dòng đó — để
+  // gõ liên tục không bị "hết dòng" giữa chừng. Các dòng khác để Tab mặc định
+  // tự nhảy xuống Mã NVL của dòng kế tiếp (đã bỏ nút Xoá khỏi thứ tự Tab).
+  function handlePriceKeyDown(e, idx) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      handleGridKeyDown(e, idx, 2)
+      return
+    }
+    if (e.key === 'Tab' && !e.shiftKey && idx === creating.lines.length - 1) {
+      e.preventDefault()
+      setCreating((c) => ({ ...c, lines: [...c.lines, emptyLine()] }))
+      setTimeout(() => {
+        codeRefs.current[idx + 1]?.focus()
+        codeRefs.current[idx + 1]?.select?.()
+      }, 0)
+    }
   }
 
   function removeLine(idx) {
@@ -418,13 +423,13 @@ export default function NhapKho() {
                           type="text" inputMode="decimal" value={l.unit_price}
                           onChange={(e) => updateLine(idx, 'unit_price', e.target.value)}
                           onPaste={(e) => handlePasteCode(e, idx)}
-                          onKeyDown={(e) => handleGridKeyDown(e, idx, 2)}
+                          onKeyDown={(e) => handlePriceKeyDown(e, idx)}
                           onFocus={selectAll}
                           className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                       </td>
                       <td className="px-3 py-1 text-right font-medium text-ink">{amount > 0 ? amount.toLocaleString('vi-VN') : ''}</td>
                       <td className="px-2 py-1 text-center">
-                        <button onClick={() => removeLine(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                        <button tabIndex={-1} onClick={() => removeLine(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
                       </td>
                     </tr>
                   )
