@@ -36,7 +36,13 @@ const menu = [
   },
   { label: 'Cost món / mâm', icon: ChefHat, disabled: true },
   { label: 'Đơn hàng / Doanh thu', icon: ShoppingCart, disabled: true },
-  { label: 'Kho (Nhập-Xuất-Tồn)', icon: Warehouse, disabled: true },
+  {
+    label: 'Kho (Nhập-Xuất-Tồn)', icon: Warehouse,
+    children: [
+      { label: 'Nhập kho', to: '/kho/nhap-kho' },
+      { label: 'Sổ kho', to: '/kho/so-kho' },
+    ],
+  },
   { label: 'Báo cáo', icon: BarChart3, disabled: true },
 ]
 
