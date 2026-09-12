@@ -113,6 +113,32 @@ export default function NhapKho() {
     })
   }
 
+  // Chỉ sửa được phiếu đang ở trạng thái Nháp (chưa ghi sổ, chưa ảnh hưởng
+  // tồn kho). Phiếu đã ghi sổ (POSTED) muốn sửa thì Huỷ phiếu rồi tạo lại.
+  function openEdit(receipt) {
+    const lines = (receipt.purchase_receipt_details || []).map((d) => {
+      const mat = materials.find((m) => m.id === d.material_id)
+      return {
+        code: mat ? mat.material_code : '',
+        quantity: String(d.quantity ?? ''),
+        unit_price: String(d.unit_price ?? ''),
+      }
+    })
+    while (lines.length < 8) lines.push(emptyLine())
+    setCreating({
+      id: receipt.id,
+      header: {
+        receipt_no: receipt.receipt_no,
+        receipt_date: receipt.receipt_date,
+        supplier_id: receipt.supplier_id || '',
+        warehouse_id: receipt.warehouse_id || '',
+        payment_type: receipt.payment_type || 'tien_mat',
+        note: receipt.note || '',
+      },
+      lines,
+    })
+  }
+
   function updateLine(idx, field, value) {
     setCreating((c) => {
       const lines = [...c.lines]
@@ -243,6 +269,40 @@ export default function NhapKho() {
       return
     }
     setSaving(true)
+
+    if (creating.id) {
+      // SỬA phiếu Nháp có sẵn: cập nhật header, xoá hết dòng cũ rồi ghi lại dòng mới
+      const { error: eUpd } = await supabase.from('purchase_receipts').update(creating.header).eq('id', creating.id)
+      if (eUpd) {
+        setError(eUpd.message)
+        setSaving(false)
+        return
+      }
+      const { error: eDel } = await supabase.from('purchase_receipt_details').delete().eq('receipt_id', creating.id)
+      if (eDel) {
+        setError(eDel.message)
+        setSaving(false)
+        return
+      }
+      const { error: eIns } = await supabase.from('purchase_receipt_details').insert(
+        validLines.map((l) => ({
+          receipt_id: creating.id,
+          material_id: l.material.id,
+          quantity: Number(l.quantity),
+          unit_price: Number(l.unit_price) || 0,
+        }))
+      )
+      setSaving(false)
+      if (eIns) {
+        setError(eIns.message)
+        return
+      }
+      setCreating(null)
+      loadReceipts()
+      return
+    }
+
+    // TẠO phiếu mới
     const { data: receipt, error: e1 } = await supabase
       .from('purchase_receipts')
       .insert({ ...creating.header, created_by: user.id, status: 'DRAFT' })
@@ -303,11 +363,11 @@ export default function NhapKho() {
     return (
       <div className="p-6 md:p-8">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-semibold text-ink">Tạo phiếu nhập kho</h1>
+          <h1 className="text-xl font-semibold text-ink">{creating.id ? 'Sửa phiếu nhập kho' : 'Tạo phiếu nhập kho'}</h1>
           <div className="flex gap-2">
             <button onClick={() => setCreating(null)} className="px-4 py-2 text-sm rounded-lg border border-gray-200">Huỷ</button>
             <button onClick={handleSaveDraft} disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-brand-600 text-white font-medium disabled:opacity-60">
-              {saving ? 'Đang lưu...' : 'Lưu nháp'}
+              {saving ? 'Đang lưu...' : creating.id ? 'Cập nhật' : 'Lưu nháp'}
             </button>
           </div>
         </div>
@@ -517,7 +577,11 @@ export default function NhapKho() {
                       {busyId === r.id ? (
                         <Loader2 size={15} className="inline animate-spin text-gray-400" />
                       ) : r.status === 'DRAFT' ? (
-                        <button onClick={() => postReceipt(r)} className="text-green-600 font-medium hover:underline">Ghi sổ (cập nhật kho)</button>
+                        <>
+                          <button onClick={() => openEdit(r)} className="text-brand-600 hover:underline">Sửa</button>
+                          <span className="text-gray-300 mx-1.5">|</span>
+                          <button onClick={() => postReceipt(r)} className="text-green-600 font-medium hover:underline">Ghi sổ (cập nhật kho)</button>
+                        </>
                       ) : r.status === 'POSTED' ? (
                         <button onClick={() => cancelReceipt(r)} className="text-red-500 hover:underline">Huỷ phiếu (hoàn tác kho)</button>
                       ) : (
