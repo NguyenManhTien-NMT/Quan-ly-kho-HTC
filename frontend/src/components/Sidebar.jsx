@@ -51,7 +51,7 @@ const menu = [
     label: 'Kho (Nhập-Xuất-Tồn)', icon: Warehouse,
     children: [
       { label: 'Nhập kho', to: '/kho/nhap-kho' },
-      { label: 'Xuất kho theo món', to: '/kho/xuat-kho' },
+      { label: 'Xuất kho', to: '/kho/xuat-kho' },
       { label: 'Sổ kho', to: '/kho/so-kho' },
     ],
   },
