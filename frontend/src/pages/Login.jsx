@@ -31,8 +31,8 @@ export default function Login() {
         <div className="flex items-center gap-3">
           <Logo size={40} />
           <div>
-            <div className="font-semibold text-ink leading-tight">Kho · Cost · Giá vốn</div>
-            <div className="text-xs text-gray-400">Đăng nhập để tiếp tục</div>
+            <div className="font-semibold text-ink leading-tight">HTC - QL - KHO</div>
+            <div className="text-xs text-gray-400">Kho · Cost · Giá vốn — Đăng nhập để tiếp tục</div>
           </div>
         </div>
 
