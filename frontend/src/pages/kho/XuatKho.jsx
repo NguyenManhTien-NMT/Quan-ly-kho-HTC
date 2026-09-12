@@ -16,10 +16,11 @@ function genCode(prefix) {
   return `${prefix}-${ymd}-${Math.floor(Math.random() * 9000 + 1000)}`
 }
 function emptyProductLine() { return { code: '', quantity: '', selling_price: '' } }
+function emptyMaterialLine() { return { productCode: '', code: '', quantity: '' } }
 
 export default function XuatKho() {
   const { user } = useAuth()
-  const [rows, setRows] = useState([]) // issue_receipts + order
+  const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState(null)
@@ -27,7 +28,7 @@ export default function XuatKho() {
   const [warehouses, setWarehouses] = useState([])
   const [products, setProducts] = useState([])
   const [materials, setMaterials] = useState([])
-  const [recipeCache, setRecipeCache] = useState({}) // product_id -> [{material_id, quantity}]
+  const [recipeCache, setRecipeCache] = useState({})
 
   const [creating, setCreating] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -63,15 +64,19 @@ export default function XuatKho() {
     products.forEach((p) => { map[String(p.product_code).trim().toLowerCase()] = p })
     return map
   }, [products])
-  const materialById = useMemo(() => {
+  const materialByCode = useMemo(() => {
     const map = {}
-    materials.forEach((m) => { map[m.id] = m })
+    materials.forEach((m) => { map[String(m.material_code).trim().toLowerCase()] = m })
     return map
   }, [materials])
 
   function resolveProduct(code) {
     if (!code) return null
     return productByCode[String(code).trim().toLowerCase()] || null
+  }
+  function resolveMaterial(code) {
+    if (!code) return null
+    return materialByCode[String(code).trim().toLowerCase()] || null
   }
 
   async function getRecipeLines(productId) {
@@ -88,11 +93,11 @@ export default function XuatKho() {
     setCreating({
       header: { issue_no: genCode('PX'), order_code: genCode('DH'), issue_date: new Date().toISOString().slice(0, 10), warehouse_id: '', note: '' },
       productLines: Array.from({ length: 5 }, emptyProductLine),
-      materialLines: [], // [{material_id, code, name, unit, suggested, quantity}]
+      materialLines: Array.from({ length: 5 }, emptyMaterialLine),
     })
   }
 
-  // ----- Lưới nhập MÓN (giống hệt tương tác của lưới Nhập kho) -----
+  // ===== Lưới MÓN (Mã món / SL bán / Giá bán) =====
   const codeRefs = useRef([]); const qtyRefs = useRef([]); const priceRefs = useRef([])
   const REFS_BY_COL = [codeRefs, qtyRefs, priceRefs]
 
@@ -113,7 +118,7 @@ export default function XuatKho() {
   function removeProductLine(idx) { setCreating((c) => ({ ...c, productLines: c.productLines.filter((_, i) => i !== idx) })) }
 
   function selectAll(e) { e.target.select() }
-  function handleGridKeyDown(e, rowIdx, colIdx) {
+  function handleGridKeyDown(e, rowIdx, colIdx, refsByCol, maxCol) {
     const el = e.target
     const fullySelected = el.selectionStart === 0 && el.selectionEnd === (el.value ? el.value.length : 0)
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !fullySelected) return
@@ -123,16 +128,16 @@ export default function XuatKho() {
     else if (e.key === 'ArrowLeft') targetCol -= 1
     else if (e.key === 'ArrowRight') targetCol += 1
     else return
-    if (targetCol < 0 || targetCol > 2 || targetRow < 0) { e.preventDefault(); return }
-    const refs = REFS_BY_COL[targetCol]
+    if (targetCol < 0 || targetCol > maxCol || targetRow < 0) { e.preventDefault(); return }
+    const refs = refsByCol[targetCol]
     if (targetRow >= refs.current.length) { e.preventDefault(); return }
     e.preventDefault(); refs.current[targetRow]?.focus(); refs.current[targetRow]?.select?.()
   }
   function handleCodeKeyDown(e, idx) {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) handleGridKeyDown(e, idx, 0)
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) handleGridKeyDown(e, idx, 0, REFS_BY_COL, 2)
   }
   function handlePriceKeyDown(e, idx) {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) { handleGridKeyDown(e, idx, 2); return }
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) { handleGridKeyDown(e, idx, 2, REFS_BY_COL, 2); return }
     if (e.key === 'Tab' && !e.shiftKey && idx === creating.productLines.length - 1) {
       e.preventDefault()
       setCreating((c) => ({ ...c, productLines: [...c.productLines, emptyProductLine()] }))
@@ -164,31 +169,72 @@ export default function XuatKho() {
   const unresolvedProductCount = resolvedProductLines.filter((l) => l.code && !l.product).length
   const validProductLines = resolvedProductLines.filter((l) => l.product && Number(l.quantity) > 0)
 
-  // ----- Tính NVL cần xuất theo Cost (yêu cầu 1+3) -----
+  // ===== Lưới NVL (Mã món gán / Mã NVL / SL thực xuất) — thao tác y hệt lưới Nhập kho: gõ tay, dán, Tab, mũi tên, thêm dòng tự do =====
+  const matProductRefs = useRef([]); const matCodeRefs = useRef([]); const matQtyRefs = useRef([])
+  const MAT_REFS_BY_COL = [matProductRefs, matCodeRefs, matQtyRefs]
+
+  function updateMaterialLine(idx, field, value) {
+    setCreating((c) => { const lines = [...c.materialLines]; lines[idx] = { ...lines[idx], [field]: value }; return { ...c, materialLines: lines } })
+  }
+  function addMaterialRows(n) { setCreating((c) => ({ ...c, materialLines: [...c.materialLines, ...Array.from({ length: n }, emptyMaterialLine)] })) }
+  function removeMaterialLine(idx) { setCreating((c) => ({ ...c, materialLines: c.materialLines.filter((_, i) => i !== idx) })) }
+
+  function handleMatKeyDown(e, idx, col) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) handleGridKeyDown(e, idx, col, MAT_REFS_BY_COL, 2)
+  }
+  function handleMatQtyKeyDown(e, idx) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) { handleGridKeyDown(e, idx, 2, MAT_REFS_BY_COL, 2); return }
+    if (e.key === 'Tab' && !e.shiftKey && idx === creating.materialLines.length - 1) {
+      e.preventDefault()
+      setCreating((c) => ({ ...c, materialLines: [...c.materialLines, emptyMaterialLine()] }))
+      setTimeout(() => { matProductRefs.current[idx + 1]?.focus(); matProductRefs.current[idx + 1]?.select?.() }, 0)
+    }
+  }
+  // Dán từ Excel vào lưới NVL: Mã NVL [Tab] Số lượng (2 cột); Mã món gán để trống, gán tay sau nếu cần
+  function handleMatPaste(e, startIdx) {
+    const text = e.clipboardData?.getData('text')
+    if (!text || (!text.includes('\n') && !text.includes('\t'))) return
+    e.preventDefault()
+    const pastedRows = text.split(/\r\n|\n|\r/).filter((l) => l.length > 0).map((l) => l.split('\t'))
+    setCreating((c) => {
+      const lines = [...c.materialLines]
+      pastedRows.forEach((cols, i) => {
+        const idx = startIdx + i
+        while (idx >= lines.length) lines.push(emptyMaterialLine())
+        lines[idx] = { productCode: lines[idx]?.productCode || '', code: (cols[0] || '').trim(), quantity: (cols[1] || '').toString().trim().replace(',', '.') }
+      })
+      return { ...c, materialLines: lines }
+    })
+  }
+
+  const resolvedMaterialLines = (creating?.materialLines || []).map((l) => ({
+    ...l, product: resolveProduct(l.productCode), material: resolveMaterial(l.code),
+  }))
+  const unresolvedMaterialCount = resolvedMaterialLines.filter((l) => l.code && !l.material).length
+
+  // Tính NVL cần xuất theo Cost món (yêu cầu 3): sinh 1 dòng riêng cho từng
+  // cặp Món-NVL (không gộp chung), có sẵn Mã món gán — nhân viên kho vẫn có
+  // thể xoá/sửa/thêm dòng tay như lưới Nhập kho sau khi tính xong.
   async function computeMaterialNeeds() {
     setError('')
     if (validProductLines.length === 0) { setError('Cần ít nhất 1 dòng món hợp lệ trước khi tính NVL.'); return }
-    const needMap = {} // material_id -> qty
+    const newLines = []
     for (const l of validProductLines) {
-      const lines = await getRecipeLines(l.product.id)
-      if (lines.length === 0) {
+      const recipeLines = await getRecipeLines(l.product.id)
+      if (recipeLines.length === 0) {
         setError(`Món "${l.product.product_name}" chưa có Cost món (công thức) — vào Cost món khai báo trước.`)
       }
-      lines.forEach((rd) => {
-        needMap[rd.material_id] = (needMap[rd.material_id] || 0) + Number(rd.quantity) * Number(l.quantity)
+      recipeLines.forEach((rd) => {
+        const mat = materials.find((m) => m.id === rd.material_id)
+        newLines.push({
+          productCode: l.product.product_code,
+          code: mat ? mat.material_code : '',
+          quantity: String(Math.round(Number(rd.quantity) * Number(l.quantity) * 1000) / 1000),
+        })
       })
     }
-    const materialLines = Object.entries(needMap).map(([material_id, suggested]) => {
-      const mat = materialById[material_id]
-      return { material_id, code: mat?.material_code, name: mat?.material_name, unit: mat?.unit, suggested, quantity: String(Math.round(suggested * 1000) / 1000) }
-    })
-    setCreating((c) => ({ ...c, materialLines }))
+    setCreating((c) => ({ ...c, materialLines: newLines.length ? newLines : c.materialLines }))
   }
-
-  function updateMaterialQty(idx, value) {
-    setCreating((c) => { const lines = [...c.materialLines]; lines[idx] = { ...lines[idx], quantity: value }; return { ...c, materialLines: lines } })
-  }
-  function removeMaterialLine(idx) { setCreating((c) => ({ ...c, materialLines: c.materialLines.filter((_, i) => i !== idx) })) }
 
   async function handleSaveDraft(e) {
     e.preventDefault()
@@ -196,8 +242,9 @@ export default function XuatKho() {
     if (unresolvedProductCount > 0) { setError('Có dòng mã món không khớp danh mục.'); return }
     if (validProductLines.length === 0) { setError('Cần ít nhất 1 dòng món hợp lệ.'); return }
     if (!creating.header.warehouse_id) { setError('Chưa chọn Kho xuất.'); return }
-    const validMaterialLines = creating.materialLines.filter((l) => Number(l.quantity) > 0)
-    if (validMaterialLines.length === 0) { setError('Chưa có dòng NVL nào để xuất — bấm "Tính NVL cần xuất theo Cost" trước.'); return }
+    if (unresolvedMaterialCount > 0) { setError('Có dòng mã NVL không khớp danh mục — sửa hoặc xoá dòng đó.'); return }
+    const validMaterialLines = resolvedMaterialLines.filter((l) => l.material && Number(l.quantity) > 0)
+    if (validMaterialLines.length === 0) { setError('Chưa có dòng NVL nào để xuất.'); return }
 
     setSaving(true)
     const { data: order, error: e1 } = await supabase
@@ -222,7 +269,12 @@ export default function XuatKho() {
     if (e3) { setError(e3.message); setSaving(false); return }
 
     const { error: e4 } = await supabase.from('issue_receipt_details').insert(
-      validMaterialLines.map((l) => ({ issue_id: issue.id, material_id: l.material_id, quantity: Number(l.quantity) }))
+      validMaterialLines.map((l) => ({
+        issue_id: issue.id,
+        material_id: l.material.id,
+        product_id: l.product ? l.product.id : null,
+        quantity: Number(l.quantity),
+      }))
     )
     setSaving(false)
     if (e4) { setError(e4.message); return }
@@ -293,7 +345,7 @@ export default function XuatKho() {
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm mb-4">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <ClipboardPaste size={15} /> Nhập/dán Mã món — Số lượng — Giá bán (giống lưới Nhập kho: Tab, mũi tên 4 hướng, dán nhiều dòng đều dùng được).
+              <ClipboardPaste size={15} /> Bán món: Mã món — SL bán — Giá bán (dán từ Excel, Tab, mũi tên 4 hướng đều dùng được).
             </div>
             <div className="flex gap-3 items-center">
               <div className="text-sm"><span className="text-gray-400">Doanh thu tạm tính: </span><span className="font-semibold text-ink">{totalRevenue.toLocaleString('vi-VN')}</span></div>
@@ -329,7 +381,7 @@ export default function XuatKho() {
                     <td className="px-1 py-1">
                       <input ref={(el) => (qtyRefs.current[idx] = el)} type="text" inputMode="decimal" value={l.quantity}
                         onChange={(e) => updateProductLine(idx, 'quantity', e.target.value)} onPaste={(e) => handlePasteCode(e, idx)}
-                        onKeyDown={(e) => handleGridKeyDown(e, idx, 1)} onFocus={selectAll}
+                        onKeyDown={(e) => handleGridKeyDown(e, idx, 1, REFS_BY_COL, 2)} onFocus={selectAll}
                         className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                     </td>
                     <td className="px-1 py-1">
@@ -352,41 +404,80 @@ export default function XuatKho() {
 
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
-            <div className="text-sm text-gray-500">NVL cần xuất (tự tính theo Cost món — kiểm tra rồi sửa lại số lượng thực xuất nếu cần)</div>
-            <button onClick={computeMaterialNeeds} className="inline-flex items-center gap-2 text-xs text-brand-600 hover:underline">
-              <Calculator size={14} /> Tính NVL cần xuất theo Cost
-            </button>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <ClipboardPaste size={15} /> NVL cần xuất — gõ tay, dán từ Excel (Mã NVL — SL), Tab, mũi tên đều giống hệt lưới Nhập kho. Mỗi dòng có thể gán vào 1 Mã món tương ứng để truy vết.
+            </div>
+            <div className="flex gap-2">
+              <button onClick={computeMaterialNeeds} className="inline-flex items-center gap-2 text-xs text-brand-600 hover:underline">
+                <Calculator size={14} /> Tính lại theo Cost món
+              </button>
+              <button onClick={() => addMaterialRows(5)} className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 text-xs">+5 dòng</button>
+            </div>
           </div>
-          {creating.materialLines.length === 0 ? (
-            <div className="p-6 text-center text-sm text-gray-400">Chưa tính — bấm "Tính NVL cần xuất theo Cost" ở trên sau khi đã nhập đủ dòng món.</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-left">
-                  <th className="px-3 py-2 text-xs text-gray-400 uppercase">Mã NVL</th>
-                  <th className="px-3 py-2 text-xs text-gray-400 uppercase">Tên NVL</th>
-                  <th className="px-3 py-2 text-xs text-gray-400 uppercase w-20">ĐVT</th>
-                  <th className="px-3 py-2 text-xs text-gray-400 uppercase w-28 text-right">SL đề xuất</th>
-                  <th className="px-3 py-2 text-xs text-gray-400 uppercase w-28 text-right">SL thực xuất</th>
-                  <th className="px-3 py-2 w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {creating.materialLines.map((l, idx) => (
-                  <tr key={l.material_id} className="border-b border-gray-50 last:border-0">
-                    <td className="px-3 py-1.5">{l.code}</td>
-                    <td className="px-3 py-1.5 text-gray-600">{l.name}</td>
-                    <td className="px-3 py-1.5 text-gray-400 text-xs">{l.unit}</td>
-                    <td className="px-3 py-1.5 text-right text-gray-400">{Number(l.suggested).toLocaleString('vi-VN')}</td>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-left">
+                <th className="px-3 py-2 w-10 text-xs text-gray-400">#</th>
+                <th className="px-3 py-2 text-xs text-gray-400 uppercase w-40">Món tương ứng</th>
+                <th className="px-3 py-2 text-xs text-gray-400 uppercase">Mã NVL</th>
+                <th className="px-3 py-2 text-xs text-gray-400 uppercase">Tên NVL</th>
+                <th className="px-3 py-2 text-xs text-gray-400 uppercase w-20">ĐVT</th>
+                <th className="px-3 py-2 text-xs text-gray-400 uppercase w-28 text-right">SL thực xuất</th>
+                <th className="px-3 py-2 w-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {resolvedMaterialLines.map((l, idx) => {
+                const invalid = l.code && !l.material
+                const productInvalid = l.productCode && !l.product
+                return (
+                  <tr key={idx} className="border-b border-gray-50 last:border-0">
+                    <td className="px-3 py-1 text-xs text-gray-400">{idx + 1}</td>
                     <td className="px-1 py-1">
-                      <input type="text" inputMode="decimal" value={l.quantity} onChange={(e) => updateMaterialQty(idx, e.target.value)}
+                      <input
+                        ref={(el) => (matProductRefs.current[idx] = el)}
+                        list="products-datalist-xk-mat" value={l.productCode}
+                        onChange={(e) => updateMaterialLine(idx, 'productCode', e.target.value)}
+                        onKeyDown={(e) => handleMatKeyDown(e, idx, 0)} onFocus={selectAll}
+                        placeholder="(tuỳ chọn)"
+                        className={`w-full rounded-md border px-2 py-1.5 text-sm ${productInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200'}`} />
+                      {l.product && <div className="text-xs text-gray-400 truncate">{l.product.product_name}</div>}
+                    </td>
+                    <td className="px-1 py-1">
+                      <input
+                        ref={(el) => (matCodeRefs.current[idx] = el)}
+                        list="materials-datalist-xk" value={l.code}
+                        onChange={(e) => updateMaterialLine(idx, 'code', e.target.value)}
+                        onPaste={(e) => handleMatPaste(e, idx)}
+                        onKeyDown={(e) => handleMatKeyDown(e, idx, 1)} onFocus={selectAll}
+                        placeholder="Gõ mã NVL..."
+                        className={`w-full rounded-md border px-2 py-1.5 text-sm ${invalid ? 'border-red-300 bg-red-50' : 'border-gray-200'}`} />
+                    </td>
+                    <td className="px-2 py-1 text-gray-600">{l.material?.material_name || (invalid ? <span className="text-red-500 text-xs">Không tìm thấy mã</span> : '')}</td>
+                    <td className="px-2 py-1 text-gray-400 text-xs">{l.material?.unit || ''}</td>
+                    <td className="px-1 py-1">
+                      <input
+                        ref={(el) => (matQtyRefs.current[idx] = el)}
+                        type="text" inputMode="decimal" value={l.quantity}
+                        onChange={(e) => updateMaterialLine(idx, 'quantity', e.target.value)}
+                        onPaste={(e) => handleMatPaste(e, idx)}
+                        onKeyDown={(e) => handleMatQtyKeyDown(e, idx)} onFocus={selectAll}
                         className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right font-medium" />
                     </td>
-                    <td className="px-2 py-1 text-center"><button onClick={() => removeMaterialLine(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button></td>
+                    <td className="px-2 py-1 text-center"><button tabIndex={-1} onClick={() => removeMaterialLine(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button></td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                )
+              })}
+            </tbody>
+          </table>
+          <datalist id="materials-datalist-xk">
+            {materials.map((m) => <option key={m.id} value={m.material_code}>{m.material_name}</option>)}
+          </datalist>
+          <datalist id="products-datalist-xk-mat">
+            {products.map((p) => <option key={p.id} value={p.product_code}>{p.product_name}</option>)}
+          </datalist>
+          {unresolvedMaterialCount > 0 && (
+            <div className="px-5 py-2 text-xs text-red-500 border-t border-gray-50">{unresolvedMaterialCount} dòng mã NVL không khớp danh mục.</div>
           )}
         </div>
       </div>
