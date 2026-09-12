@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+# frontend/src/pages/kho/NhapKho.jsx
+
+```jsx
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, RefreshCw, Loader2, Trash2, ClipboardPaste } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
@@ -69,9 +72,30 @@ export default function NhapKho() {
     return map
   }, [materials])
 
-  function resolveMaterial(code) {
-    if (!code) return null
-    return materialByCode[String(code).trim().toLowerCase()] || null
+  // Cho phép gõ theo TÊN NVL (không chỉ mã) — khớp chính xác tên, không phân biệt hoa/thường
+  const materialByName = useMemo(() => {
+    const map = {}
+    materials.forEach((m) => { map[String(m.material_name).trim().toLowerCase()] = m })
+    return map
+  }, [materials])
+
+  // Gợi ý (datalist) hiển thị dạng "Mã — Tên" để gõ mã HOẶC tên đều lọc ra được;
+  // sau khi chọn, tách lại phần mã ở đầu để tra cứu.
+  function extractCode(raw) {
+    if (!raw) return ''
+    const idx = raw.indexOf(' — ')
+    return idx >= 0 ? raw.slice(0, idx).trim() : raw.trim()
+  }
+
+  function resolveMaterial(rawCode) {
+    if (!rawCode) return null
+    const code = extractCode(rawCode)
+    return (
+      materialByCode[code.toLowerCase()] ||
+      materialByName[code.toLowerCase()] ||
+      materialByName[rawCode.trim().toLowerCase()] ||
+      null
+    )
   }
 
   function openCreate() {
@@ -98,6 +122,27 @@ export default function NhapKho() {
 
   function addRows(n) {
     setCreating((c) => ({ ...c, lines: [...c.lines, ...Array.from({ length: n }, emptyLine)] }))
+  }
+
+  const codeRefs = useRef([])
+
+  // Bấm Tab ở ô Mã NVL -> nhảy xuống ô Mã NVL của dòng kế tiếp (thay vì nhảy
+  // sang ô Số lượng bên phải như mặc định của trình duyệt), giống thao tác
+  // nhập nhanh theo cột trong Excel. Tự thêm dòng mới nếu đang ở dòng cuối.
+  function handleCodeKeyDown(e, idx) {
+    if (e.key === 'Tab' && !e.shiftKey) {
+      e.preventDefault()
+      setCreating((c) => {
+        if (idx + 1 >= c.lines.length) {
+          return { ...c, lines: [...c.lines, emptyLine()] }
+        }
+        return c
+      })
+      setTimeout(() => {
+        codeRefs.current[idx + 1]?.focus()
+        codeRefs.current[idx + 1]?.select?.()
+      }, 0)
+    }
   }
 
   function removeLine(idx) {
@@ -272,10 +317,16 @@ export default function NhapKho() {
               <ClipboardPaste size={15} />
               Dán trực tiếp từ Excel vào ô "Mã NVL" (3 cột: Mã NVL — Số lượng — Đơn giá, cách nhau bằng Tab) — hệ thống tự điền tràn xuống các dòng dưới.
             </div>
-            <div className="flex gap-2 text-xs">
-              <button onClick={() => addRows(1)} className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">+1 dòng</button>
-              <button onClick={() => addRows(10)} className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">+10 dòng</button>
-              <button onClick={() => addRows(50)} className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">+50 dòng</button>
+            <div className="flex gap-3 items-center">
+              <div className="text-sm">
+                <span className="text-gray-400">Tổng tạm tính: </span>
+                <span className="font-semibold text-ink">{total.toLocaleString('vi-VN')}</span>
+              </div>
+              <div className="flex gap-2 text-xs">
+                <button onClick={() => addRows(1)} className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">+1 dòng</button>
+                <button onClick={() => addRows(10)} className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">+10 dòng</button>
+                <button onClick={() => addRows(50)} className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">+50 dòng</button>
+              </div>
             </div>
           </div>
 
@@ -302,11 +353,13 @@ export default function NhapKho() {
                       <td className="px-3 py-1 text-xs text-gray-400">{idx + 1}</td>
                       <td className="px-1 py-1">
                         <input
+                          ref={(el) => (codeRefs.current[idx] = el)}
                           list="materials-datalist"
                           value={l.code}
                           onChange={(e) => updateLine(idx, 'code', e.target.value)}
                           onPaste={(e) => handlePasteCode(e, idx)}
-                          placeholder="Mã NVL..."
+                          onKeyDown={(e) => handleCodeKeyDown(e, idx)}
+                          placeholder="Gõ mã hoặc tên NVL..."
                           className={`w-full rounded-md border px-2 py-1.5 text-sm ${codeInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}
                         />
                       </td>
@@ -324,7 +377,7 @@ export default function NhapKho() {
                           onPaste={(e) => handlePasteCode(e, idx)}
                           className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                       </td>
-                      <td className="px-3 py-1 text-right text-gray-700">{amount > 0 ? amount.toLocaleString('vi-VN') : ''}</td>
+                      <td className="px-3 py-1 text-right font-medium text-ink">{amount > 0 ? amount.toLocaleString('vi-VN') : ''}</td>
                       <td className="px-2 py-1 text-center">
                         <button onClick={() => removeLine(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
                       </td>
@@ -334,7 +387,7 @@ export default function NhapKho() {
               </tbody>
             </table>
             <datalist id="materials-datalist">
-              {materials.map((m) => <option key={m.id} value={m.material_code}>{m.material_name}</option>)}
+              {materials.map((m) => <option key={m.id} value={`${m.material_code} — ${m.material_name}`} />)}
             </datalist>
           </div>
 
