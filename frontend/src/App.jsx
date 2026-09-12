@@ -13,6 +13,7 @@ import NhanVienKinhDoanh from './pages/danhmuc/NhanVienKinhDoanh'
 import Kho from './pages/danhmuc/Kho'
 import LoaiDoanhThu from './pages/danhmuc/LoaiDoanhThu'
 import NhapKho from './pages/kho/NhapKho'
+import XuatKho from './pages/kho/XuatKho'
 import SoKho from './pages/kho/SoKho'
 import CostMon from './pages/cost/CostMon'
 import CostMam from './pages/cost/CostMam'
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/danh-muc/kho" element={<ProtectedLayout><Kho /></ProtectedLayout>} />
         <Route path="/danh-muc/loai-doanh-thu" element={<ProtectedLayout><LoaiDoanhThu /></ProtectedLayout>} />
         <Route path="/kho/nhap-kho" element={<ProtectedLayout><NhapKho /></ProtectedLayout>} />
+        <Route path="/kho/xuat-kho" element={<ProtectedLayout><XuatKho /></ProtectedLayout>} />
         <Route path="/kho/so-kho" element={<ProtectedLayout><SoKho /></ProtectedLayout>} />
         <Route path="/cost/mon" element={<ProtectedLayout><CostMon /></ProtectedLayout>} />
         <Route path="/cost/mam" element={<ProtectedLayout><CostMam /></ProtectedLayout>} />
