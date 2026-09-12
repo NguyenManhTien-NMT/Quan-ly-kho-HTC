@@ -34,8 +34,19 @@ const menu = [
       { label: 'Loại doanh thu', to: '/danh-muc/loai-doanh-thu' },
     ],
   },
-  { label: 'Cost món / mâm', icon: ChefHat, disabled: true },
-  { label: 'Đơn hàng / Doanh thu', icon: ShoppingCart, disabled: true },
+  {
+    label: 'Cost món / mâm', icon: ChefHat,
+    children: [
+      { label: 'Cost món', to: '/cost/mon' },
+      { label: 'Cost mâm / combo', to: '/cost/mam' },
+    ],
+  },
+  {
+    label: 'Đơn hàng / Doanh thu', icon: ShoppingCart,
+    children: [
+      { label: 'Đơn hàng', to: '/don-hang' },
+    ],
+  },
   {
     label: 'Kho (Nhập-Xuất-Tồn)', icon: Warehouse,
     children: [
