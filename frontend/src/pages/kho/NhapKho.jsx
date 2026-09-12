@@ -125,11 +125,17 @@ export default function NhapKho() {
   }
 
   const codeRefs = useRef([])
+  const qtyRefs = useRef([])
+  const priceRefs = useRef([])
 
   // Bấm Tab ở ô Mã NVL -> nhảy xuống ô Mã NVL của dòng kế tiếp (thay vì nhảy
   // sang ô Số lượng bên phải như mặc định của trình duyệt), giống thao tác
   // nhập nhanh theo cột trong Excel. Tự thêm dòng mới nếu đang ở dòng cuối.
   function handleCodeKeyDown(e, idx) {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      handleArrowNav(e, idx, codeRefs)
+      return
+    }
     if (e.key === 'Tab' && !e.shiftKey) {
       e.preventDefault()
       setCreating((c) => {
@@ -143,6 +149,21 @@ export default function NhapKho() {
         codeRefs.current[idx + 1]?.select?.()
       }, 0)
     }
+  }
+
+  // Mũi tên Lên/Xuống -> nhảy sang cùng cột ở dòng trước/sau, giá trị ở ô đến
+  // tự động được bôi đen (chọn toàn bộ) nhờ onFocus={selectAll} bên dưới, nên
+  // gõ số mới sẽ thay thế luôn giá trị cũ, giống thao tác trong Excel.
+  function handleArrowNav(e, idx, refsArray) {
+    e.preventDefault()
+    const targetIdx = e.key === 'ArrowUp' ? idx - 1 : idx + 1
+    if (targetIdx < 0 || targetIdx >= refsArray.current.length) return
+    refsArray.current[targetIdx]?.focus()
+    refsArray.current[targetIdx]?.select?.()
+  }
+
+  function selectAll(e) {
+    e.target.select()
   }
 
   function removeLine(idx) {
@@ -359,6 +380,7 @@ export default function NhapKho() {
                           onChange={(e) => updateLine(idx, 'code', e.target.value)}
                           onPaste={(e) => handlePasteCode(e, idx)}
                           onKeyDown={(e) => handleCodeKeyDown(e, idx)}
+                          onFocus={selectAll}
                           placeholder="Gõ mã hoặc tên NVL..."
                           className={`w-full rounded-md border px-2 py-1.5 text-sm ${codeInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}
                         />
@@ -366,15 +388,23 @@ export default function NhapKho() {
                       <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{l.material?.material_name || (codeInvalid ? <span className="text-red-500 text-xs">Không tìm thấy mã</span> : '')}</td>
                       <td className="px-2 py-1 text-gray-400 text-xs">{l.material?.unit || ''}</td>
                       <td className="px-1 py-1">
-                        <input type="text" inputMode="decimal" value={l.quantity}
+                        <input
+                          ref={(el) => (qtyRefs.current[idx] = el)}
+                          type="text" inputMode="decimal" value={l.quantity}
                           onChange={(e) => updateLine(idx, 'quantity', e.target.value)}
                           onPaste={(e) => handlePasteCode(e, idx)}
+                          onKeyDown={(e) => (e.key === 'ArrowUp' || e.key === 'ArrowDown') && handleArrowNav(e, idx, qtyRefs)}
+                          onFocus={selectAll}
                           className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                       </td>
                       <td className="px-1 py-1">
-                        <input type="text" inputMode="decimal" value={l.unit_price}
+                        <input
+                          ref={(el) => (priceRefs.current[idx] = el)}
+                          type="text" inputMode="decimal" value={l.unit_price}
                           onChange={(e) => updateLine(idx, 'unit_price', e.target.value)}
                           onPaste={(e) => handlePasteCode(e, idx)}
+                          onKeyDown={(e) => (e.key === 'ArrowUp' || e.key === 'ArrowDown') && handleArrowNav(e, idx, priceRefs)}
+                          onFocus={selectAll}
                           className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                       </td>
                       <td className="px-3 py-1 text-right font-medium text-ink">{amount > 0 ? amount.toLocaleString('vi-VN') : ''}</td>
