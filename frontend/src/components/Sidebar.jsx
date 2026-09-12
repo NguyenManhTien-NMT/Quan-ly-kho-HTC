@@ -110,8 +110,8 @@ export default function Sidebar() {
       <div className="flex items-center gap-3 px-5 py-5">
         <Logo size={36} />
         <div>
-          <div className="text-white font-semibold text-sm leading-tight">Kho · Cost · Giá vốn</div>
-          <div className="text-navy-400 text-xs">Nhà hàng</div>
+          <div className="text-white font-semibold text-sm leading-tight">HTC - QL - KHO</div>
+          <div className="text-navy-400 text-xs">Kho · Cost · Giá vốn</div>
         </div>
       </div>
 
