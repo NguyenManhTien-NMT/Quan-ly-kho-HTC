@@ -12,6 +12,10 @@ const STATUS_BADGE = {
   CANCELLED: { label: 'Đã huỷ', variant: 'red' },
 }
 
+// Đã bỏ bước Gửi duyệt/Duyệt khỏi giao diện theo yêu cầu — phiếu tạo ra ở
+// trạng thái DRAFT có thể Ghi sổ thẳng. Nếu phát hiện sai sót SAU khi đã ghi
+// sổ, dùng "Huỷ phiếu" để hoàn tác đúng tồn kho rồi tạo phiếu mới thay thế.
+
 function genReceiptNo() {
   const d = new Date()
   const ymd = d.toISOString().slice(0, 10).replace(/-/g, '')
@@ -266,20 +270,30 @@ export default function NhapKho() {
     loadReceipts()
   }
 
-  async function changeStatus(receipt, newStatus) {
+  async function postReceipt(receipt) {
+    if (!confirm(`Ghi sổ phiếu ${receipt.receipt_no}? Tồn kho và giá bình quân sẽ cập nhật ngay. Nếu phát hiện sai sót sau đó, bạn vẫn có thể "Huỷ phiếu" để hoàn tác.`)) return
     setBusyId(receipt.id)
     setError('')
-    const { error } = await supabase.from('purchase_receipts').update({ status: newStatus }).eq('id', receipt.id)
+    const { error } = await supabase.rpc('post_purchase_receipt', { p_receipt_id: receipt.id, p_user_id: user.id })
     setBusyId(null)
     if (error) setError(error.message)
     else loadReceipts()
   }
 
-  async function postReceipt(receipt) {
-    if (!confirm(`Ghi sổ phiếu ${receipt.receipt_no}? Sau bước này tồn kho và giá bình quân sẽ cập nhật, không thể sửa/xoá phiếu.`)) return
+  async function cancelReceipt(receipt) {
+    const reason = prompt(`Nhập lý do huỷ phiếu ${receipt.receipt_no} (bắt buộc để lưu vết):`)
+    if (reason === null) return // bấm Huỷ hộp thoại
+    if (!reason.trim()) {
+      setError('Cần nhập lý do huỷ phiếu.')
+      return
+    }
     setBusyId(receipt.id)
     setError('')
-    const { error } = await supabase.rpc('post_purchase_receipt', { p_receipt_id: receipt.id, p_user_id: user.id })
+    const { error } = await supabase.rpc('cancel_purchase_receipt', {
+      p_receipt_id: receipt.id,
+      p_user_id: user.id,
+      p_reason: reason.trim(),
+    })
     setBusyId(null)
     if (error) setError(error.message)
     else loadReceipts()
@@ -503,15 +517,9 @@ export default function NhapKho() {
                       {busyId === r.id ? (
                         <Loader2 size={15} className="inline animate-spin text-gray-400" />
                       ) : r.status === 'DRAFT' ? (
-                        <button onClick={() => changeStatus(r, 'SUBMITTED')} className="text-brand-600 hover:underline">Gửi duyệt</button>
-                      ) : r.status === 'SUBMITTED' ? (
-                        <>
-                          <button onClick={() => changeStatus(r, 'APPROVED')} className="text-brand-600 hover:underline">Duyệt</button>
-                          <span className="text-gray-300 mx-1.5">|</span>
-                          <button onClick={() => changeStatus(r, 'DRAFT')} className="text-red-500 hover:underline">Từ chối</button>
-                        </>
-                      ) : r.status === 'APPROVED' ? (
                         <button onClick={() => postReceipt(r)} className="text-green-600 font-medium hover:underline">Ghi sổ (cập nhật kho)</button>
+                      ) : r.status === 'POSTED' ? (
+                        <button onClick={() => cancelReceipt(r)} className="text-red-500 hover:underline">Huỷ phiếu (hoàn tác kho)</button>
                       ) : (
                         <span className="text-gray-300">—</span>
                       )}
