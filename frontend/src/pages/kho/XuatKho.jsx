@@ -28,7 +28,11 @@ export default function XuatKho() {
   const [warehouses, setWarehouses] = useState([])
   const [products, setProducts] = useState([])
   const [materials, setMaterials] = useState([])
-  const [recipeCache, setRecipeCache] = useState({})
+  // Công thức Cost món được tải sẵn toàn bộ 1 lần, 2 chiều:
+  //  - recipeByProductId: món -> danh sách NVL định lượng (dùng khi gõ Mã món để tự nhảy NVL)
+  //  - productIdsByMaterialId: NVL -> danh sách món có dùng NVL này (dùng để gợi ý ngược Món khi gõ NVL trước)
+  const [recipeByProductId, setRecipeByProductId] = useState({})
+  const [productIdsByMaterialId, setProductIdsByMaterialId] = useState({})
 
   const [creating, setCreating] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -49,14 +53,32 @@ export default function XuatKho() {
   }
 
   async function loadRefs() {
-    const [w, p, m] = await Promise.all([
+    const [w, p, m, r, rd] = await Promise.all([
       supabase.from('warehouses').select('id,name').eq('active', true),
       supabase.from('products').select('id,product_code,product_name,unit,selling_price').eq('active', true),
       supabase.from('materials').select('id,material_code,material_name,unit').eq('active', true),
+      supabase.from('recipes').select('id,product_id').eq('active', true),
+      supabase.from('recipe_details').select('recipe_id,material_id,quantity'),
     ])
     setWarehouses(w.data || [])
     setProducts(p.data || [])
     setMaterials(m.data || [])
+
+    const recipeIdToProductId = {}
+    ;(r.data || []).forEach((rec) => { recipeIdToProductId[rec.id] = rec.product_id })
+
+    const byProduct = {}
+    const byMaterial = {}
+    ;(rd.data || []).forEach((d) => {
+      const productId = recipeIdToProductId[d.recipe_id]
+      if (!productId) return
+      if (!byProduct[productId]) byProduct[productId] = []
+      byProduct[productId].push({ material_id: d.material_id, quantity: Number(d.quantity) })
+      if (!byMaterial[d.material_id]) byMaterial[d.material_id] = new Set()
+      byMaterial[d.material_id].add(productId)
+    })
+    setRecipeByProductId(byProduct)
+    setProductIdsByMaterialId(byMaterial)
   }
 
   const productByCode = useMemo(() => {
@@ -69,6 +91,16 @@ export default function XuatKho() {
     materials.forEach((m) => { map[String(m.material_code).trim().toLowerCase()] = m })
     return map
   }, [materials])
+  const productById = useMemo(() => {
+    const map = {}
+    products.forEach((p) => { map[p.id] = p })
+    return map
+  }, [products])
+  const materialById = useMemo(() => {
+    const map = {}
+    materials.forEach((m) => { map[m.id] = m })
+    return map
+  }, [materials])
 
   function resolveProduct(code) {
     if (!code) return null
@@ -77,16 +109,6 @@ export default function XuatKho() {
   function resolveMaterial(code) {
     if (!code) return null
     return materialByCode[String(code).trim().toLowerCase()] || null
-  }
-
-  async function getRecipeLines(productId) {
-    if (recipeCache[productId]) return recipeCache[productId]
-    const { data: recipe } = await supabase.from('recipes').select('id').eq('product_id', productId).eq('active', true).maybeSingle()
-    if (!recipe) { setRecipeCache((c) => ({ ...c, [productId]: [] })); return [] }
-    const { data: details } = await supabase.from('recipe_details').select('material_id, quantity').eq('recipe_id', recipe.id)
-    const lines = details || []
-    setRecipeCache((c) => ({ ...c, [productId]: lines }))
-    return lines
   }
 
   function openCreate() {
@@ -179,6 +201,80 @@ export default function XuatKho() {
   function addMaterialRows(n) { setCreating((c) => ({ ...c, materialLines: [...c.materialLines, ...Array.from({ length: n }, emptyMaterialLine)] })) }
   function removeMaterialLine(idx) { setCreating((c) => ({ ...c, materialLines: c.materialLines.filter((_, i) => i !== idx) })) }
 
+  // Gán "Món tương ứng" ở 1 dòng -> tự nhảy TOÀN BỘ NVL theo Cost món của
+  // đúng món đó, nhân đúng theo SL BÁN thực tế lấy từ bảng "Bán món" phía
+  // trên (bắt buộc phải có sẵn SL bán — nếu không sẽ báo lỗi thay vì đoán
+  // đại =1, vì 1 món có từ 2 NVL trở lên mà tính sai SL sẽ sai hàng loạt).
+  function expandRecipeForRow(idx, rawCode) {
+    const product = resolveProduct(rawCode)
+    if (!product) return
+    const recipeLines = recipeByProductId[product.id]
+    if (!recipeLines || recipeLines.length === 0) {
+      setError(`Món "${product.product_name}" chưa có Cost món (công thức) — vào Cost món khai báo trước, hoặc tự gõ tay NVL cho dòng này.`)
+      return
+    }
+    const soldLine = resolvedProductLines.find((l) => l.product && l.product.id === product.id)
+    if (!soldLine || !(Number(soldLine.quantity) > 0)) {
+      setError(`Chưa có SL bán cho món "${product.product_name}" ở bảng "Bán món" phía trên — nhập SL bán ở đó trước thì hệ thống mới tính đúng số lượng NVL.`)
+      return
+    }
+    const soldQty = Number(soldLine.quantity)
+
+    setCreating((c) => {
+      let lines = [...c.materialLines]
+      const existingForProduct = new Set(
+        lines
+          .filter((l) => l.productCode && resolveProduct(l.productCode)?.id === product.id && l.code)
+          .map((l) => l.code.trim().toLowerCase())
+      )
+      const newRows = []
+      recipeLines.forEach((rl) => {
+        const mat = materialById[rl.material_id]
+        if (!mat) return
+        if (existingForProduct.has(mat.material_code.trim().toLowerCase())) return
+        newRows.push({ productCode: rawCode, code: mat.material_code, quantity: String(Math.round(rl.quantity * soldQty * 1000) / 1000) })
+      })
+      if (newRows.length === 0) return c
+
+      if (!lines[idx].code) {
+        lines[idx] = { ...lines[idx], productCode: rawCode, code: newRows[0].code, quantity: newRows[0].quantity }
+        lines.splice(idx + 1, 0, ...newRows.slice(1))
+      } else {
+        lines.splice(idx + 1, 0, ...newRows)
+      }
+      return { ...c, materialLines: lines }
+    })
+    setError('')
+  }
+
+  // Gõ Mã NVL trước khi có Món tương ứng -> gợi ý Món (chỉ tự điền khi đúng
+  // DUY NHẤT 1 món dùng NVL này trong Cost món; nhân viên vẫn sửa lại được).
+  function suggestProductForMaterialRow(idx, rawCode) {
+    const material = resolveMaterial(rawCode)
+    if (!material) return
+    setCreating((c) => {
+      if (c.materialLines[idx].productCode) return c
+      const candidates = productIdsByMaterialId[material.id]
+      if (!candidates || candidates.size !== 1) return c
+      const [productId] = candidates
+      const product = productById[productId]
+      if (!product) return c
+      const lines = [...c.materialLines]
+      lines[idx] = { ...lines[idx], productCode: product.product_code }
+      return { ...c, materialLines: lines }
+    })
+  }
+
+  // Bấm "+" cạnh 1 dòng -> chèn thêm 1 dòng NVL trống ngay bên dưới, gán sẵn
+  // đúng Món tương ứng của dòng đó (yêu cầu: bổ sung NVL cho món đang xuất).
+  function addMaterialRowForSameProduct(idx) {
+    setCreating((c) => {
+      const lines = [...c.materialLines]
+      lines.splice(idx + 1, 0, { productCode: lines[idx].productCode || '', code: '', quantity: '' })
+      return { ...c, materialLines: lines }
+    })
+  }
+
   function handleMatKeyDown(e, idx, col) {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) handleGridKeyDown(e, idx, col, MAT_REFS_BY_COL, 2)
   }
@@ -212,26 +308,30 @@ export default function XuatKho() {
   }))
   const unresolvedMaterialCount = resolvedMaterialLines.filter((l) => l.code && !l.material).length
 
-  // Tính NVL cần xuất theo Cost món (yêu cầu 3): sinh 1 dòng riêng cho từng
-  // cặp Món-NVL (không gộp chung), có sẵn Mã món gán — nhân viên kho vẫn có
-  // thể xoá/sửa/thêm dòng tay như lưới Nhập kho sau khi tính xong.
-  async function computeMaterialNeeds() {
+  // Tính NVL cần xuất theo Cost món cho TẤT CẢ các dòng món cùng lúc: sinh 1
+  // dòng riêng cho từng cặp Món-NVL (không gộp chung), có sẵn Mã món gán.
+  function computeMaterialNeeds() {
     setError('')
     if (validProductLines.length === 0) { setError('Cần ít nhất 1 dòng món hợp lệ trước khi tính NVL.'); return }
     const newLines = []
+    const missingRecipe = []
     for (const l of validProductLines) {
-      const recipeLines = await getRecipeLines(l.product.id)
-      if (recipeLines.length === 0) {
-        setError(`Món "${l.product.product_name}" chưa có Cost món (công thức) — vào Cost món khai báo trước.`)
+      const recipeLines = recipeByProductId[l.product.id]
+      if (!recipeLines || recipeLines.length === 0) {
+        missingRecipe.push(l.product.product_name)
+        continue
       }
       recipeLines.forEach((rd) => {
-        const mat = materials.find((m) => m.id === rd.material_id)
+        const mat = materialById[rd.material_id]
         newLines.push({
           productCode: l.product.product_code,
           code: mat ? mat.material_code : '',
           quantity: String(Math.round(Number(rd.quantity) * Number(l.quantity) * 1000) / 1000),
         })
       })
+    }
+    if (missingRecipe.length > 0) {
+      setError(`Các món sau chưa có Cost món (công thức), cần gõ tay NVL: ${missingRecipe.join(', ')}`)
     }
     setCreating((c) => ({ ...c, materialLines: newLines.length ? newLines : c.materialLines }))
   }
@@ -310,7 +410,7 @@ export default function XuatKho() {
     return (
       <div className="p-6 md:p-8">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-semibold text-ink">Xuất kho theo món</h1>
+          <h1 className="text-xl font-semibold text-ink">Xuất kho</h1>
           <div className="flex gap-2">
             <button onClick={() => setCreating(null)} className="px-4 py-2 text-sm rounded-lg border border-gray-200">Huỷ</button>
             <button onClick={handleSaveDraft} disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-brand-600 text-white font-medium disabled:opacity-60">
@@ -405,7 +505,7 @@ export default function XuatKho() {
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <ClipboardPaste size={15} /> NVL cần xuất — gõ tay, dán từ Excel (Mã NVL — SL), Tab, mũi tên đều giống hệt lưới Nhập kho. Mỗi dòng có thể gán vào 1 Mã món tương ứng để truy vết.
+              <ClipboardPaste size={15} /> Gõ "Món tương ứng" → tự nhảy NVL theo đúng Cost món (nhân đúng SL bán ở bảng trên). Gõ Mã NVL trước → tự gợi ý Món nếu chỉ 1 món dùng NVL đó. Bấm + để thêm dòng NVL cho đúng món. Vẫn gõ tay/dán từ Excel/Tab/mũi tên như lưới Nhập kho.
             </div>
             <div className="flex gap-2">
               <button onClick={computeMaterialNeeds} className="inline-flex items-center gap-2 text-xs text-brand-600 hover:underline">
@@ -434,13 +534,19 @@ export default function XuatKho() {
                   <tr key={idx} className="border-b border-gray-50 last:border-0">
                     <td className="px-3 py-1 text-xs text-gray-400">{idx + 1}</td>
                     <td className="px-1 py-1">
-                      <input
-                        ref={(el) => (matProductRefs.current[idx] = el)}
-                        list="products-datalist-xk-mat" value={l.productCode}
-                        onChange={(e) => updateMaterialLine(idx, 'productCode', e.target.value)}
-                        onKeyDown={(e) => handleMatKeyDown(e, idx, 0)} onFocus={selectAll}
-                        placeholder="(tuỳ chọn)"
-                        className={`w-full rounded-md border px-2 py-1.5 text-sm ${productInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200'}`} />
+                      <div className="flex items-center gap-1">
+                        <input
+                          ref={(el) => (matProductRefs.current[idx] = el)}
+                          list="products-datalist-xk-mat" value={l.productCode}
+                          onChange={(e) => updateMaterialLine(idx, 'productCode', e.target.value)}
+                          onBlur={(e) => expandRecipeForRow(idx, e.target.value)}
+                          onKeyDown={(e) => handleMatKeyDown(e, idx, 0)} onFocus={selectAll}
+                          placeholder="(tuỳ chọn)"
+                          className={`w-full rounded-md border px-2 py-1.5 text-sm ${productInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200'}`} />
+                        <button type="button" tabIndex={-1} title="Thêm dòng NVL cho món này"
+                          onClick={() => addMaterialRowForSameProduct(idx)}
+                          className="shrink-0 text-brand-600 hover:bg-brand-50 rounded p-1"><Plus size={13} /></button>
+                      </div>
                       {l.product && <div className="text-xs text-gray-400 truncate">{l.product.product_name}</div>}
                     </td>
                     <td className="px-1 py-1">
@@ -448,6 +554,7 @@ export default function XuatKho() {
                         ref={(el) => (matCodeRefs.current[idx] = el)}
                         list="materials-datalist-xk" value={l.code}
                         onChange={(e) => updateMaterialLine(idx, 'code', e.target.value)}
+                        onBlur={(e) => suggestProductForMaterialRow(idx, e.target.value)}
                         onPaste={(e) => handleMatPaste(e, idx)}
                         onKeyDown={(e) => handleMatKeyDown(e, idx, 1)} onFocus={selectAll}
                         placeholder="Gõ mã NVL..."
@@ -488,7 +595,7 @@ export default function XuatKho() {
     <div className="p-6 md:p-8">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Xuất kho theo món</h1>
+          <h1 className="text-xl font-semibold text-ink">Xuất kho</h1>
           <p className="text-sm text-gray-400 mt-0.5">{rows.length} phiếu</p>
         </div>
         <div className="flex items-center gap-2">
