@@ -12,6 +12,8 @@ import KhachHang from './pages/danhmuc/KhachHang'
 import NhanVienKinhDoanh from './pages/danhmuc/NhanVienKinhDoanh'
 import Kho from './pages/danhmuc/Kho'
 import LoaiDoanhThu from './pages/danhmuc/LoaiDoanhThu'
+import NhapKho from './pages/kho/NhapKho'
+import SoKho from './pages/kho/SoKho'
 
 function ProtectedLayout({ children }) {
   const { user } = useAuth()
@@ -39,6 +41,8 @@ export default function App() {
         <Route path="/danh-muc/nhan-vien-kinh-doanh" element={<ProtectedLayout><NhanVienKinhDoanh /></ProtectedLayout>} />
         <Route path="/danh-muc/kho" element={<ProtectedLayout><Kho /></ProtectedLayout>} />
         <Route path="/danh-muc/loai-doanh-thu" element={<ProtectedLayout><LoaiDoanhThu /></ProtectedLayout>} />
+        <Route path="/kho/nhap-kho" element={<ProtectedLayout><NhapKho /></ProtectedLayout>} />
+        <Route path="/kho/so-kho" element={<ProtectedLayout><SoKho /></ProtectedLayout>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>
