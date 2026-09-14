@@ -4,3 +4,11 @@
 
 html, body, #root { height: 100%; }
 body { font-feature-settings: "cv11"; }
+
+/* In phiếu: chỉ hiện đúng vùng .print-area khi bấm in, ẩn hết phần còn lại của app */
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+}
