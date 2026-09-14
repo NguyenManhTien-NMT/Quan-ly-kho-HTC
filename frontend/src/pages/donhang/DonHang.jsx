@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, RefreshCw, Loader2, Trash2 } from 'lucide-react'
+import { Plus, RefreshCw, Loader2, Trash2, Eye, X } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import Badge from '../../components/Badge'
@@ -34,6 +34,7 @@ export default function DonHang() {
   const [creating, setCreating] = useState(null)
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState(null)
+  const [viewing, setViewing] = useState(null)
 
   useEffect(() => {
     loadOrders()
@@ -423,6 +424,9 @@ export default function DonHang() {
                     <td className="px-4 py-3 whitespace-nowrap">{profit !== 0 ? profit.toLocaleString('vi-VN') : '—'}</td>
                     <td className="px-4 py-3"><Badge variant={badge.variant}>{badge.label}</Badge></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap text-sm">
+                      <button onClick={() => setViewing(o)} className="inline-flex items-center gap-1 text-gray-500 hover:text-brand-600 mr-3 align-middle">
+                        <Eye size={13} /> Xem
+                      </button>
                       {busyId === o.id ? (
                         <Loader2 size={15} className="inline animate-spin text-gray-400" />
                       ) : o.status === 'DRAFT' ? (
@@ -440,6 +444,64 @@ export default function DonHang() {
           </table>
         )}
       </div>
+
+      {viewing && (() => {
+        const salesperson = salespersons.find((s) => s.id === viewing.salesperson_id)
+        const revenueType = revenueTypes.find((r) => r.id === viewing.revenue_type_id)
+        const details = viewing.order_details || []
+        return (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl w-full max-w-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-ink">Chi tiết đơn {viewing.order_code}</h2>
+                <button onClick={() => setViewing(null)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><span className="text-gray-400">Ngày: </span>{viewing.order_date}</div>
+                <div><span className="text-gray-400">Kho: </span>{warehouses.find((w) => w.id === viewing.warehouse_id)?.name || '—'}</div>
+                <div><span className="text-gray-400">NVKD: </span>{salesperson?.full_name || '—'}</div>
+                <div><span className="text-gray-400">Loại doanh thu: </span>{revenueType?.name || '—'}</div>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-left">
+                    <th className="px-2 py-2 text-xs text-gray-400 uppercase">Món/Mâm</th>
+                    <th className="px-2 py-2 text-xs text-gray-400 uppercase text-right">SL</th>
+                    <th className="px-2 py-2 text-xs text-gray-400 uppercase text-right">Giá bán</th>
+                    <th className="px-2 py-2 text-xs text-gray-400 uppercase text-right">Doanh thu</th>
+                    <th className="px-2 py-2 text-xs text-gray-400 uppercase text-right">Giá vốn</th>
+                    <th className="px-2 py-2 text-xs text-gray-400 uppercase text-right">Lợi nhuận</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {details.map((d, idx) => {
+                    const name = d.item_type === 'product'
+                      ? products.find((p) => p.id === d.product_id)?.product_name
+                      : menus.find((m) => m.id === d.menu_id)?.menu_name
+                    const profit = Number(d.profit || 0)
+                    return (
+                      <tr key={idx} className="border-b border-gray-50 last:border-0">
+                        <td className="px-2 py-1.5">{name || '—'}</td>
+                        <td className="px-2 py-1.5 text-right">{Number(d.quantity).toLocaleString('vi-VN')}</td>
+                        <td className="px-2 py-1.5 text-right">{Number(d.selling_price || 0).toLocaleString('vi-VN')}</td>
+                        <td className="px-2 py-1.5 text-right">{Number(d.revenue || 0).toLocaleString('vi-VN')}</td>
+                        <td className="px-2 py-1.5 text-right">{d.cost != null ? Number(d.cost).toLocaleString('vi-VN') : '—'}</td>
+                        <td className={`px-2 py-1.5 text-right font-medium ${profit < 0 ? 'text-red-500' : ''}`}>{d.profit != null ? profit.toLocaleString('vi-VN') : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                  {details.length === 0 && (
+                    <tr><td colSpan={6} className="px-2 py-6 text-center text-gray-400">Đơn này không có dòng món nào (toàn bộ NVL xuất không gán được vào món cụ thể).</td></tr>
+                  )}
+                </tbody>
+              </table>
+              <div className="flex justify-end pt-2 border-t border-gray-100">
+                <button onClick={() => setViewing(null)} className="px-4 py-2 text-sm rounded-lg border border-gray-200">Đóng</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
