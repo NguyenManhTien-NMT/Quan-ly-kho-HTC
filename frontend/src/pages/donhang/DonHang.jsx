@@ -374,6 +374,8 @@ export default function DonHang() {
               <tr className="border-b border-gray-100 text-left">
                 <th className="px-4 py-3 font-medium text-gray-400 text-xs uppercase">Mã đơn</th>
                 <th className="px-4 py-3 font-medium text-gray-400 text-xs uppercase">Ngày</th>
+                <th className="px-4 py-3 font-medium text-gray-400 text-xs uppercase">Mã xuất (NVKD)</th>
+                <th className="px-4 py-3 font-medium text-gray-400 text-xs uppercase">Loại doanh thu</th>
                 <th className="px-4 py-3 font-medium text-gray-400 text-xs uppercase">Doanh thu</th>
                 <th className="px-4 py-3 font-medium text-gray-400 text-xs uppercase">Giá vốn</th>
                 <th className="px-4 py-3 font-medium text-gray-400 text-xs uppercase">Lợi nhuận</th>
@@ -386,10 +388,14 @@ export default function DonHang() {
                 const cost = (o.order_details || []).reduce((s, d) => s + Number(d.cost || 0), 0)
                 const profit = (o.order_details || []).reduce((s, d) => s + Number(d.profit || 0), 0)
                 const badge = STATUS_BADGE[o.status] || STATUS_BADGE.DRAFT
+                const salesperson = salespersons.find((s) => s.id === o.salesperson_id)
+                const revenueType = revenueTypes.find((r) => r.id === o.revenue_type_id)
                 return (
                   <tr key={o.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
                     <td className="px-4 py-3 font-medium text-ink whitespace-nowrap">{o.order_code}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{o.order_date}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{salesperson?.full_name || '—'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{revenueType?.name || '—'}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{Number(o.revenue || 0).toLocaleString('vi-VN')}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{cost > 0 ? cost.toLocaleString('vi-VN') : '—'}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{profit !== 0 ? profit.toLocaleString('vi-VN') : '—'}</td>
