@@ -717,6 +717,27 @@ export default function XuatKho() {
         </div>
       </div>
 
+      {rows.length > 0 && (() => {
+        const totalRevenue = rows.reduce((s, r) => s + Number(r.orders?.revenue || 0), 0)
+        const postedCount = rows.filter((r) => r.status === 'POSTED').length
+        return (
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Tổng số phiếu</div>
+              <div className="text-lg font-semibold text-ink">{rows.length}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Đã ghi sổ</div>
+              <div className="text-lg font-semibold text-ink">{postedCount}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Tổng doanh thu</div>
+              <div className="text-lg font-semibold text-ink">{totalRevenue.toLocaleString('vi-VN')}</div>
+            </div>
+          </div>
+        )
+      })()}
+
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-3">{error}</div>}
 
       <div className="rounded-xl border border-gray-100 bg-white overflow-x-auto shadow-sm">
@@ -747,7 +768,9 @@ export default function XuatKho() {
                     <td className="px-4 py-3">{(r.issue_receipt_details || []).length}</td>
                     <td className="px-4 py-3"><Badge variant={badge.variant}>{badge.label}</Badge></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap text-sm">
-                      <button onClick={() => openPrint(r)} title="In phiếu" className="inline text-gray-400 hover:text-brand-600 mr-2 align-middle"><Printer size={14} /></button>
+                      <button onClick={() => openPrint(r)} className="inline-flex items-center gap-1 text-gray-500 hover:text-brand-600 mr-3 align-middle">
+                        <Printer size={13} /> Xem/In
+                      </button>
                       {busyId === r.id ? (
                         <Loader2 size={15} className="inline animate-spin text-gray-400" />
                       ) : r.status === 'DRAFT' ? (
