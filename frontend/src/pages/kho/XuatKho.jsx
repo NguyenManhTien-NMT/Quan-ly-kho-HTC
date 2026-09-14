@@ -91,6 +91,11 @@ export default function XuatKho() {
     materials.forEach((m) => { map[m.id] = m })
     return map
   }, [materials])
+  const productById = useMemo(() => {
+    const map = {}
+    products.forEach((p) => { map[p.id] = p })
+    return map
+  }, [products])
 
   function resolveProduct(code) {
     if (!code) return null
@@ -99,6 +104,14 @@ export default function XuatKho() {
   function resolveMaterial(code) {
     if (!code) return null
     return materialByCode[String(code).trim().toLowerCase()] || null
+  }
+  // Danh sách món GỢI Ý cho 1 NVL cụ thể — chỉ gồm các món có dùng NVL đó
+  // trong Cost món, để hiện thành dropdown lựa chọn (không phải toàn bộ danh mục món).
+  function getCandidateProducts(material) {
+    if (!material) return []
+    const ids = productIdsByMaterialId.current[material.id]
+    if (!ids) return []
+    return [...ids].map((id) => productById[id]).filter(Boolean)
   }
 
   function openCreate() {
@@ -194,23 +207,9 @@ export default function XuatKho() {
     setError('')
   }
 
-  // Gõ Mã NVL trước -> gợi ý Món tương ứng nếu chỉ 1 món dùng NVL này.
-  function suggestProductForMaterialRow(idx, rawCode) {
-    const material = resolveMaterial(rawCode)
-    if (!material) return
-    setCreating((c) => {
-      if (c.materialLines[idx].productCode) return c
-      const candidates = productIdsByMaterialId.current[material.id]
-      if (!candidates || candidates.size !== 1) return c
-      const [productId] = candidates
-      const product = products.find((p) => p.id === productId)
-      if (!product) return c
-      const lines = [...c.materialLines]
-      lines[idx] = { ...lines[idx], productCode: product.product_code }
-      const productSales = ensureProductSale(c.productSales, product.product_code)
-      return { ...c, materialLines: lines, productSales }
-    })
-  }
+  // (Đã bỏ tự động điền Món khi gõ NVL — thay bằng danh sách gợi ý dropdown
+  // ở chính ô "Món tương ứng" thông qua getCandidateProducts(), để nhân viên
+  // tự chọn đúng món thay vì hệ thống tự nhảy 1 loạt món liên quan.)
 
   function addMaterialRowForSameProduct(idx) {
     setCreating((c) => {
@@ -461,7 +460,7 @@ export default function XuatKho() {
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <ClipboardPaste size={15} /> Gõ Mã NVL trước → gợi ý Món tương ứng. Hoặc gõ Món tương ứng → tự nhảy NVL theo Cost món (nhân đúng SL bán ở bảng trên). Bấm + để thêm dòng NVL cho đúng món. Vẫn gõ tay/dán từ Excel/Tab/mũi tên như lưới Nhập kho.
+              <ClipboardPaste size={15} /> Gõ Mã NVL xong → ô "Món tương ứng" sẽ hiện gợi ý chỉ gồm các món có dùng NVL đó để bạn chọn. Chọn xong → tự nhảy các NVL còn lại theo Cost món (nhân đúng SL bán ở bảng trên). Bấm + để thêm dòng NVL cho đúng món. Vẫn gõ tay/dán từ Excel/Tab/mũi tên như lưới Nhập kho.
             </div>
             <div className="flex gap-2">
               <button onClick={computeMaterialNeeds} className="inline-flex items-center gap-2 text-xs text-brand-600 hover:underline">
@@ -486,6 +485,8 @@ export default function XuatKho() {
               {resolvedMaterialLines.map((l, idx) => {
                 const invalid = l.code && !l.material
                 const productInvalid = l.productCode && !l.product
+                const candidateProducts = getCandidateProducts(l.material)
+                const productListId = candidateProducts.length > 0 ? `products-suggest-${idx}` : 'products-datalist-xk-mat'
                 return (
                   <tr key={idx} className="border-b border-gray-50 last:border-0">
                     <td className="px-3 py-1 text-xs text-gray-400">{idx + 1}</td>
@@ -494,7 +495,6 @@ export default function XuatKho() {
                         ref={(el) => (matCodeRefs.current[idx] = el)}
                         list="materials-datalist-xk" value={l.code}
                         onChange={(e) => updateMaterialLine(idx, 'code', e.target.value)}
-                        onBlur={(e) => suggestProductForMaterialRow(idx, e.target.value)}
                         onPaste={(e) => handleMatPaste(e, idx)}
                         onKeyDown={(e) => handleMatKeyDown(e, idx, 0)} onFocus={selectAll}
                         placeholder="Gõ mã NVL..."
@@ -515,16 +515,21 @@ export default function XuatKho() {
                       <div className="flex items-center gap-1">
                         <input
                           ref={(el) => (matProductRefs.current[idx] = el)}
-                          list="products-datalist-xk-mat" value={l.productCode}
+                          list={productListId} value={l.productCode}
                           onChange={(e) => updateMaterialLine(idx, 'productCode', e.target.value)}
                           onBlur={(e) => expandRecipeForRow(idx, e.target.value)}
                           onKeyDown={(e) => handleMatKeyDown(e, idx, 2)} onFocus={selectAll}
-                          placeholder="(tuỳ chọn)"
+                          placeholder={candidateProducts.length > 0 ? 'Chọn món gợi ý...' : '(tuỳ chọn)'}
                           className={`w-full rounded-md border px-2 py-1.5 text-sm ${productInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200'}`} />
                         <button type="button" tabIndex={-1} title="Thêm dòng NVL cho món này"
                           onClick={() => addMaterialRowForSameProduct(idx)}
                           className="shrink-0 text-brand-600 hover:bg-brand-50 rounded p-1"><Plus size={13} /></button>
                       </div>
+                      {candidateProducts.length > 0 && (
+                        <datalist id={`products-suggest-${idx}`}>
+                          {candidateProducts.map((p) => <option key={p.id} value={p.product_code}>{p.product_name}</option>)}
+                        </datalist>
+                      )}
                       {l.product && <div className="text-xs text-gray-400 truncate">{l.product.product_name}</div>}
                     </td>
                     <td className="px-2 py-1 text-center"><button tabIndex={-1} onClick={() => removeMaterialLine(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button></td>
