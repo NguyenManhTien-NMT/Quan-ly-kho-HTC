@@ -27,6 +27,8 @@ export default function XuatKho() {
   const [warehouses, setWarehouses] = useState([])
   const [products, setProducts] = useState([])
   const [materials, setMaterials] = useState([])
+  const [salespersons, setSalespersons] = useState([])
+  const [revenueTypes, setRevenueTypes] = useState([])
   const recipeByProductId = useRef({})
   const productIdsByMaterialId = useRef({})
 
@@ -40,7 +42,7 @@ export default function XuatKho() {
     setError('')
     const { data, error } = await supabase
       .from('issue_receipts')
-      .select('*, orders(order_code, revenue, status), issue_receipt_details(*)')
+      .select('*, orders(order_code, revenue, status, note, order_date, warehouse_id, revenue_type_id, salesperson_id, order_details(product_id,quantity,selling_price,revenue)), issue_receipt_details(*)')
       .eq('issue_source', 'order')
       .order('issue_date', { ascending: false })
     if (error) setError(error.message)
@@ -49,16 +51,20 @@ export default function XuatKho() {
   }
 
   async function loadRefs() {
-    const [w, p, m, r, rd] = await Promise.all([
+    const [w, p, m, r, rd, sp, rt] = await Promise.all([
       supabase.from('warehouses').select('id,name').eq('active', true),
       supabase.from('products').select('id,product_code,product_name,unit,selling_price').eq('active', true),
       supabase.from('materials').select('id,material_code,material_name,unit').eq('active', true),
       supabase.from('recipes').select('id,product_id').eq('active', true),
       supabase.from('recipe_details').select('recipe_id,material_id,quantity'),
+      supabase.from('salespersons').select('id,full_name').eq('active', true),
+      supabase.from('revenue_types').select('id,name').eq('active', true),
     ])
     setWarehouses(w.data || [])
     setProducts(p.data || [])
     setMaterials(m.data || [])
+    setSalespersons(sp.data || [])
+    setRevenueTypes(rt.data || [])
 
     const recipeIdToProductId = {}
     ;(r.data || []).forEach((rec) => { recipeIdToProductId[rec.id] = rec.product_id })
@@ -116,9 +122,43 @@ export default function XuatKho() {
 
   function openCreate() {
     setCreating({
-      header: { issue_no: genCode('PX'), order_code: genCode('DH'), issue_date: new Date().toISOString().slice(0, 10), warehouse_id: '', note: '' },
+      header: { issue_no: genCode('PX'), order_code: genCode('DH'), issue_date: new Date().toISOString().slice(0, 10), warehouse_id: '', revenue_type_id: '', salesperson_id: '', note: '' },
       materialLines: Array.from({ length: 5 }, emptyMaterialLine),
       productSales: {}, // { [product_code]: { quantity, selling_price } } — tự sinh khi gán Món tương ứng ở lưới NVL
+    })
+  }
+
+  // Chỉ sửa được phiếu đang ở trạng thái Nháp (chưa ghi sổ, chưa ảnh hưởng
+  // tồn kho). Phiếu đã ghi sổ (POSTED) thì Huỷ phiếu rồi tạo lại.
+  function openEdit(row) {
+    const order = row.orders
+    const materialLines = (row.issue_receipt_details || []).map((d) => {
+      const mat = materials.find((m) => m.id === d.material_id)
+      const prod = d.product_id ? products.find((p) => p.id === d.product_id) : null
+      return { productCode: prod ? prod.product_code : '', code: mat ? mat.material_code : '', quantity: String(d.quantity ?? '') }
+    })
+    while (materialLines.length < 5) materialLines.push(emptyMaterialLine())
+
+    const productSales = {}
+    ;(order?.order_details || []).forEach((od) => {
+      const prod = products.find((p) => p.id === od.product_id)
+      if (prod) productSales[prod.product_code] = { quantity: String(od.quantity ?? ''), selling_price: String(od.selling_price ?? '') }
+    })
+
+    setCreating({
+      id: row.id,
+      orderId: row.order_id,
+      header: {
+        issue_no: row.issue_no,
+        order_code: order?.order_code || genCode('DH'),
+        issue_date: order?.order_date || new Date().toISOString().slice(0, 10),
+        warehouse_id: row.warehouse_id || '',
+        revenue_type_id: order?.revenue_type_id || '',
+        salesperson_id: order?.salesperson_id || '',
+        note: order?.note || '',
+      },
+      materialLines,
+      productSales,
     })
   }
 
@@ -301,19 +341,52 @@ export default function XuatKho() {
     const validMaterialLines = resolvedMaterialLines.filter((l) => l.material && Number(l.quantity) > 0)
     if (validMaterialLines.length === 0) { setError('Chưa có dòng NVL nào để xuất.'); return }
 
+    const orderPayload = {
+      order_code: creating.header.order_code,
+      order_date: creating.header.issue_date,
+      warehouse_id: creating.header.warehouse_id,
+      revenue_type_id: creating.header.revenue_type_id || null,
+      salesperson_id: creating.header.salesperson_id || null,
+      note: creating.header.note,
+      status: 'DRAFT',
+      revenue: totalRevenue,
+    }
+
     setSaving(true)
-    // 1) Tự tạo Đơn hàng thật đằng sau (không cần qua trang Đơn hàng trước)
+
+    if (creating.id) {
+      // SỬA phiếu Nháp có sẵn: cập nhật đơn hàng + phiếu xuất, xoá-ghi lại chi tiết
+      const { error: eu1 } = await supabase.from('orders').update(orderPayload).eq('id', creating.orderId)
+      if (eu1) { setError(eu1.message); setSaving(false); return }
+      await supabase.from('order_details').delete().eq('order_id', creating.orderId)
+      const { error: eu2 } = await supabase.from('order_details').insert(
+        validSales.map((s) => ({
+          order_id: creating.orderId, item_type: 'product', product_id: s.product.id,
+          quantity: Number(s.quantity), selling_price: Number(s.selling_price) || 0,
+          revenue: (Number(s.quantity) || 0) * (Number(s.selling_price) || 0),
+        }))
+      )
+      if (eu2) { setError(eu2.message); setSaving(false); return }
+
+      const { error: eu3 } = await supabase.from('issue_receipts').update({ warehouse_id: creating.header.warehouse_id }).eq('id', creating.id)
+      if (eu3) { setError(eu3.message); setSaving(false); return }
+      await supabase.from('issue_receipt_details').delete().eq('issue_id', creating.id)
+      const { error: eu4 } = await supabase.from('issue_receipt_details').insert(
+        validMaterialLines.map((l) => ({
+          issue_id: creating.id, material_id: l.material.id, product_id: l.product ? l.product.id : null, quantity: Number(l.quantity),
+        }))
+      )
+      setSaving(false)
+      if (eu4) { setError(eu4.message); return }
+      setCreating(null)
+      loadRows()
+      return
+    }
+
+    // TẠO phiếu mới: tự tạo Đơn hàng thật đằng sau (không cần qua trang Đơn hàng trước)
     const { data: order, error: e1 } = await supabase
       .from('orders')
-      .insert({
-        order_code: creating.header.order_code,
-        order_date: creating.header.issue_date,
-        warehouse_id: creating.header.warehouse_id,
-        note: creating.header.note,
-        created_by: user.id,
-        status: 'DRAFT',
-        revenue: totalRevenue,
-      })
+      .insert({ ...orderPayload, created_by: user.id })
       .select().single()
     if (e1) { setError(e1.message); setSaving(false); return }
 
@@ -375,11 +448,11 @@ export default function XuatKho() {
     return (
       <div className="p-6 md:p-8">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-semibold text-ink">Xuất kho</h1>
+          <h1 className="text-xl font-semibold text-ink">{creating.id ? 'Sửa phiếu xuất' : 'Xuất kho'}</h1>
           <div className="flex gap-2">
             <button onClick={() => setCreating(null)} className="px-4 py-2 text-sm rounded-lg border border-gray-200">Huỷ</button>
             <button onClick={handleSaveDraft} disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-brand-600 text-white font-medium disabled:opacity-60">
-              {saving ? 'Đang lưu...' : 'Lưu nháp'}
+              {saving ? 'Đang lưu...' : creating.id ? 'Cập nhật' : 'Lưu nháp'}
             </button>
           </div>
         </div>
@@ -400,6 +473,20 @@ export default function XuatKho() {
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
                 <option value="">-- Chọn --</option>
                 {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select></div>
+            <div><label className="block text-xs text-gray-500 mb-1">Loại doanh thu</label>
+              <select value={creating.header.revenue_type_id}
+                onChange={(e) => setCreating({ ...creating, header: { ...creating.header, revenue_type_id: e.target.value } })}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <option value="">-- Chọn --</option>
+                {revenueTypes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select></div>
+            <div><label className="block text-xs text-gray-500 mb-1">Mã xuất (NVKD)</label>
+              <select value={creating.header.salesperson_id}
+                onChange={(e) => setCreating({ ...creating, header: { ...creating.header, salesperson_id: e.target.value } })}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <option value="">-- Chọn --</option>
+                {salespersons.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
               </select></div>
             <div className="md:col-span-3"><label className="block text-xs text-gray-500 mb-1">Ghi chú</label>
               <input value={creating.header.note} onChange={(e) => setCreating({ ...creating, header: { ...creating.header, note: e.target.value } })}
@@ -598,7 +685,11 @@ export default function XuatKho() {
                       {busyId === r.id ? (
                         <Loader2 size={15} className="inline animate-spin text-gray-400" />
                       ) : r.status === 'DRAFT' ? (
-                        <button onClick={() => postRow(r)} className="text-green-600 font-medium hover:underline">Ghi sổ (cập nhật kho)</button>
+                        <>
+                          <button onClick={() => openEdit(r)} className="text-brand-600 hover:underline">Sửa</button>
+                          <span className="text-gray-300 mx-1.5">|</span>
+                          <button onClick={() => postRow(r)} className="text-green-600 font-medium hover:underline">Ghi sổ (cập nhật kho)</button>
+                        </>
                       ) : r.status === 'POSTED' ? (
                         <button onClick={() => cancelRow(r)} className="text-red-500 hover:underline">Huỷ phiếu (hoàn tác kho)</button>
                       ) : (
