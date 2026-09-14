@@ -97,6 +97,54 @@ export default function BaoCao() {
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-3">{error}</div>}
 
+      {rows.length > 0 && !loading && (
+        tab === 'xnt' ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Tổng tồn đầu (GT)</div>
+              <div className="text-lg font-semibold text-ink">{n(rows.reduce((s, r) => s + Number(r.opening_value || 0), 0))}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Tổng nhập (GT)</div>
+              <div className="text-lg font-semibold text-green-600">{n(rows.reduce((s, r) => s + Number(r.in_value || 0), 0))}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Tổng xuất (GT)</div>
+              <div className="text-lg font-semibold text-red-500">{n(rows.reduce((s, r) => s + Number(r.out_value || 0), 0))}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Tổng tồn cuối (GT) — {rows.length} NVL</div>
+              <div className="text-lg font-semibold text-ink">{n(rows.reduce((s, r) => s + Number(r.closing_value || 0), 0))}</div>
+            </div>
+          </div>
+        ) : (() => {
+          const totalRevenue = rows.reduce((s, r) => s + Number(r.total_revenue || 0), 0)
+          const totalCost = rows.reduce((s, r) => s + Number(r.total_cost || 0), 0)
+          const totalProfit = rows.reduce((s, r) => s + Number(r.total_profit || 0), 0)
+          const totalOrders = rows.reduce((s, r) => s + Number(r.order_count || 0), 0)
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="text-xs text-gray-400 mb-1">Tổng số đơn</div>
+                <div className="text-lg font-semibold text-ink">{totalOrders}</div>
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="text-xs text-gray-400 mb-1">Tổng doanh thu</div>
+                <div className="text-lg font-semibold text-ink">{n(totalRevenue)}</div>
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="text-xs text-gray-400 mb-1">Tổng giá vốn</div>
+                <div className="text-lg font-semibold text-ink">{n(totalCost)}</div>
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="text-xs text-gray-400 mb-1">Tổng lợi nhuận</div>
+                <div className="text-lg font-semibold text-green-600">{n(totalProfit)}</div>
+              </div>
+            </div>
+          )
+        })()
+      )}
+
       <div className="rounded-xl border border-gray-100 bg-white overflow-x-auto shadow-sm">
         {loading ? (
           <div className="p-10 flex items-center justify-center text-brand-600"><Loader2 className="animate-spin" size={20} /></div>
@@ -136,19 +184,6 @@ export default function BaoCao() {
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                <td className="px-3 py-2" colSpan={3}>Tổng cộng ({rows.length} NVL)</td>
-                <td className="px-3 py-2 text-right">{n(rows.reduce((s, r) => s + Number(r.opening_qty || 0), 0))}</td>
-                <td className="px-3 py-2 text-right">{n(rows.reduce((s, r) => s + Number(r.opening_value || 0), 0))}</td>
-                <td className="px-3 py-2 text-right text-green-700">{n(rows.reduce((s, r) => s + Number(r.in_qty || 0), 0))}</td>
-                <td className="px-3 py-2 text-right text-green-700">{n(rows.reduce((s, r) => s + Number(r.in_value || 0), 0))}</td>
-                <td className="px-3 py-2 text-right text-red-600">{n(rows.reduce((s, r) => s + Number(r.out_qty || 0), 0))}</td>
-                <td className="px-3 py-2 text-right text-red-600">{n(rows.reduce((s, r) => s + Number(r.out_value || 0), 0))}</td>
-                <td className="px-3 py-2 text-right">{n(rows.reduce((s, r) => s + Number(r.closing_qty || 0), 0))}</td>
-                <td className="px-3 py-2 text-right">{n(rows.reduce((s, r) => s + Number(r.closing_value || 0), 0))}</td>
-              </tr>
-            </tfoot>
           </table>
         ) : (
           <table className="w-full text-sm">
@@ -179,22 +214,6 @@ export default function BaoCao() {
                 )
               })}
             </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                <td className="px-4 py-3">Tổng cộng</td>
-                <td className="px-4 py-3 text-right">{rows.reduce((s, r) => s + Number(r.order_count || 0), 0)}</td>
-                <td className="px-4 py-3 text-right">{n(rows.reduce((s, r) => s + Number(r.total_revenue || 0), 0))}</td>
-                <td className="px-4 py-3 text-right">{n(rows.reduce((s, r) => s + Number(r.total_cost || 0), 0))}</td>
-                <td className="px-4 py-3 text-right">{n(rows.reduce((s, r) => s + Number(r.total_profit || 0), 0))}</td>
-                <td className="px-4 py-3 text-right">
-                  {(() => {
-                    const totalRev = rows.reduce((s, r) => s + Number(r.total_revenue || 0), 0)
-                    const totalProfit = rows.reduce((s, r) => s + Number(r.total_profit || 0), 0)
-                    return totalRev > 0 ? ((totalProfit / totalRev) * 100).toFixed(1) + '%' : '—'
-                  })()}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         )}
       </div>
