@@ -49,7 +49,8 @@ export default function BaoCao() {
     setLoading(false)
   }
 
-  const n = (v) => Number(v || 0).toLocaleString('vi-VN')
+  const n = (v) => Number(v || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) // tiền tệ - bỏ số thập phân
+  const nQty = (v) => Number(v || 0).toLocaleString('vi-VN', { maximumFractionDigits: 3 }) // số lượng NVL - vẫn giữ phần lẻ
 
   return (
     <div className="p-6 md:p-8">
@@ -173,13 +174,13 @@ export default function BaoCao() {
                   <td className="px-3 py-1.5 font-medium text-ink whitespace-nowrap">{r.material_code}</td>
                   <td className="px-3 py-1.5">{r.material_name}</td>
                   <td className="px-3 py-1.5 text-gray-400 text-xs">{r.unit}</td>
-                  <td className="px-3 py-1.5 text-right">{n(r.opening_qty)}</td>
+                  <td className="px-3 py-1.5 text-right">{nQty(r.opening_qty)}</td>
                   <td className="px-3 py-1.5 text-right">{n(r.opening_value)}</td>
-                  <td className="px-3 py-1.5 text-right text-green-600">{n(r.in_qty)}</td>
+                  <td className="px-3 py-1.5 text-right text-green-600">{nQty(r.in_qty)}</td>
                   <td className="px-3 py-1.5 text-right text-green-600">{n(r.in_value)}</td>
-                  <td className="px-3 py-1.5 text-right text-red-500">{n(r.out_qty)}</td>
+                  <td className="px-3 py-1.5 text-right text-red-500">{nQty(r.out_qty)}</td>
                   <td className="px-3 py-1.5 text-right text-red-500">{n(r.out_value)}</td>
-                  <td className="px-3 py-1.5 text-right font-medium">{n(r.closing_qty)}</td>
+                  <td className="px-3 py-1.5 text-right font-medium">{nQty(r.closing_qty)}</td>
                   <td className="px-3 py-1.5 text-right font-medium">{n(r.closing_value)}</td>
                 </tr>
               ))}
