@@ -52,8 +52,8 @@ export default function PrintReceipt({ type, header, lines, totalLabel = 'Tổng
                   <td className="border border-gray-300 px-2 py-1 text-xs">{l.name}</td>
                   <td className="border border-gray-300 px-2 py-1 text-xs">{l.unit}</td>
                   <td className="border border-gray-300 px-2 py-1 text-xs text-right">{Number(l.quantity).toLocaleString('vi-VN')}</td>
-                  <td className="border border-gray-300 px-2 py-1 text-xs text-right">{l.unitPrice != null ? Number(l.unitPrice).toLocaleString('vi-VN') : ''}</td>
-                  <td className="border border-gray-300 px-2 py-1 text-xs text-right">{l.amount != null ? Number(l.amount).toLocaleString('vi-VN') : ''}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-xs text-right">{l.unitPrice != null ? Number(l.unitPrice).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : ''}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-xs text-right">{l.amount != null ? Number(l.amount).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : ''}</td>
                 </tr>
               ))}
             </tbody>
@@ -61,7 +61,7 @@ export default function PrintReceipt({ type, header, lines, totalLabel = 'Tổng
               <tr>
                 <td colSpan={6} className="border border-gray-300 px-2 py-1.5 text-xs text-right font-semibold">{totalLabel}</td>
                 <td className="border border-gray-300 px-2 py-1.5 text-xs text-right font-semibold">
-                  {lines.reduce((s, l) => s + (Number(l.amount) || 0), 0).toLocaleString('vi-VN')}
+                  {lines.reduce((s, l) => s + (Number(l.amount) || 0), 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}
                 </td>
               </tr>
             </tfoot>
