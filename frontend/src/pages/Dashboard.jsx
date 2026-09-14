@@ -106,7 +106,7 @@ export default function Dashboard() {
       .slice(0, 8)
   }, [orders, productById])
 
-  const n = (v) => Number(v || 0).toLocaleString('vi-VN')
+  const n = (v) => Number(v || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })
 
   return (
     <div className="p-6 md:p-8">
@@ -177,7 +177,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f1f1" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => (v / 1000000).toFixed(1) + 'tr'} />
-                  <Tooltip formatter={(v) => Number(v).toLocaleString('vi-VN')} />
+                  <Tooltip formatter={(v) => Number(v).toLocaleString('vi-VN', { maximumFractionDigits: 0 })} />
                   <Line type="monotone" dataKey="revenue" name="Doanh thu" stroke="#16a34a" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="cost" name="Giá vốn" stroke="#ef4444" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="profit" name="Lợi nhuận" stroke="#2563eb" strokeWidth={2} dot={false} />
