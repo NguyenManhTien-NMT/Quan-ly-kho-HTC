@@ -32,6 +32,7 @@ const menu = [
       { label: 'Nhân viên kinh doanh', to: '/danh-muc/nhan-vien-kinh-doanh' },
       { label: 'Kho', to: '/danh-muc/kho' },
       { label: 'Loại doanh thu', to: '/danh-muc/loai-doanh-thu' },
+      { label: 'Nhân viên / Tài khoản', to: '/danh-muc/tai-khoan', roles: ['admin', 'quan_ly'] },
     ],
   },
   {
@@ -59,10 +60,13 @@ const menu = [
   { label: 'Báo cáo', icon: BarChart3, to: '/bao-cao' },
 ]
 
-function MenuGroup({ item }) {
+function MenuGroup({ item, role }) {
   const location = useLocation()
-  const childActive = item.children?.some((c) => location.pathname === c.to)
+  const visibleChildren = item.children?.filter((c) => !c.roles || c.roles.includes(role))
+  const childActive = visibleChildren?.some((c) => location.pathname === c.to)
   const [open, setOpen] = useState(childActive)
+
+  if (item.roles && !item.roles.includes(role)) return null
 
   if (item.disabled) {
     return (
@@ -89,6 +93,8 @@ function MenuGroup({ item }) {
     )
   }
 
+  if (!visibleChildren || visibleChildren.length === 0) return null
+
   return (
     <div className="mx-2">
       <button
@@ -102,7 +108,7 @@ function MenuGroup({ item }) {
       </button>
       {open && (
         <div className="mt-1 space-y-0.5">
-          {item.children.map((c) => (
+          {visibleChildren.map((c) => (
             <NavLink
               key={c.to}
               to={c.to}
@@ -144,7 +150,7 @@ export default function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto space-y-1 pb-4">
         {menu.map((item) => (
-          <MenuGroup key={item.label} item={item} />
+          <MenuGroup key={item.label} item={item} role={user?.role} />
         ))}
       </nav>
 
