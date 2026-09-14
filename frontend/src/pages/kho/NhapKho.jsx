@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, RefreshCw, Loader2, Trash2, ClipboardPaste } from 'lucide-react'
+import { Plus, RefreshCw, Loader2, Trash2, ClipboardPaste, Printer } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import Badge from '../../components/Badge'
+import PrintReceipt from '../../components/PrintReceipt'
 
 const STATUS_BADGE = {
   DRAFT: { label: 'Nháp', variant: 'gray' },
@@ -37,6 +38,7 @@ export default function NhapKho() {
   const [creating, setCreating] = useState(null)
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState(null)
+  const [printing, setPrinting] = useState(null) // receipt đang xem trước để in
 
   useEffect(() => {
     loadReceipts()
@@ -330,6 +332,31 @@ export default function NhapKho() {
     loadReceipts()
   }
 
+  function openPrint(receipt) {
+    const supplier = suppliers.find((s) => s.id === receipt.supplier_id)
+    const warehouse = warehouses.find((w) => w.id === receipt.warehouse_id)
+    const lines = (receipt.purchase_receipt_details || []).map((d) => {
+      const mat = materials.find((m) => m.id === d.material_id)
+      return {
+        code: mat?.material_code || '',
+        name: mat?.material_name || '',
+        unit: mat?.unit || '',
+        quantity: d.quantity,
+        unitPrice: d.unit_price,
+        amount: d.amount,
+      }
+    })
+    setPrinting({
+      header: [
+        { label: 'Số phiếu', value: receipt.receipt_no },
+        { label: 'Ngày', value: receipt.receipt_date },
+        { label: 'Kho nhập', value: warehouse?.name },
+        { label: 'Nhà cung cấp', value: supplier?.supplier_name },
+      ],
+      lines,
+    })
+  }
+
   async function postReceipt(receipt) {
     if (!confirm(`Ghi sổ phiếu ${receipt.receipt_no}? Tồn kho và giá bình quân sẽ cập nhật ngay. Nếu phát hiện sai sót sau đó, bạn vẫn có thể "Huỷ phiếu" để hoàn tác.`)) return
     setBusyId(receipt.id)
@@ -574,6 +601,7 @@ export default function NhapKho() {
                     <td className="px-4 py-3 whitespace-nowrap">{lineTotal.toLocaleString('vi-VN')}</td>
                     <td className="px-4 py-3"><Badge variant={badge.variant}>{badge.label}</Badge></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap text-sm">
+                      <button onClick={() => openPrint(r)} title="In phiếu" className="inline text-gray-400 hover:text-brand-600 mr-2 align-middle"><Printer size={14} /></button>
                       {busyId === r.id ? (
                         <Loader2 size={15} className="inline animate-spin text-gray-400" />
                       ) : r.status === 'DRAFT' ? (
@@ -595,6 +623,9 @@ export default function NhapKho() {
           </table>
         )}
       </div>
+      {printing && (
+        <PrintReceipt type="nhap" header={printing.header} lines={printing.lines} totalLabel="Tổng tiền hàng" onClose={() => setPrinting(null)} />
+      )}
     </div>
   )
 }

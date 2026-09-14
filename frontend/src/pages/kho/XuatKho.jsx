@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, RefreshCw, Loader2, Trash2, ClipboardPaste, Calculator } from 'lucide-react'
+import { Plus, RefreshCw, Loader2, Trash2, ClipboardPaste, Calculator, Printer } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import Badge from '../../components/Badge'
+import PrintReceipt from '../../components/PrintReceipt'
 
 const STATUS_BADGE = {
   DRAFT: { label: 'Nháp', variant: 'gray' },
@@ -23,6 +24,7 @@ export default function XuatKho() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState(null)
+  const [printing, setPrinting] = useState(null)
 
   const [warehouses, setWarehouses] = useState([])
   const [products, setProducts] = useState([])
@@ -384,7 +386,7 @@ export default function XuatKho() {
       )
       if (eu2) { setError(eu2.message); setSaving(false); return }
 
-      const { error: eu3 } = await supabase.from('issue_receipts').update({ warehouse_id: creating.header.warehouse_id }).eq('id', creating.id)
+      const { error: eu3 } = await supabase.from('issue_receipts').update({ warehouse_id: creating.header.warehouse_id, issue_date: creating.header.issue_date }).eq('id', creating.id)
       if (eu3) { setError(eu3.message); setSaving(false); return }
       await supabase.from('issue_receipt_details').delete().eq('issue_id', creating.id)
       const { error: eu4 } = await supabase.from('issue_receipt_details').insert(
@@ -418,7 +420,7 @@ export default function XuatKho() {
     // 2) Tạo phiếu xuất kho gắn với đơn hàng vừa tạo
     const { data: issue, error: e3 } = await supabase
       .from('issue_receipts')
-      .insert({ issue_no: creating.header.issue_no, warehouse_id: creating.header.warehouse_id, issue_source: 'order', order_id: order.id, status: 'DRAFT' })
+      .insert({ issue_no: creating.header.issue_no, issue_date: creating.header.issue_date, warehouse_id: creating.header.warehouse_id, issue_source: 'order', order_id: order.id, status: 'DRAFT' })
       .select().single()
     if (e3) { setError(e3.message); setSaving(false); return }
 
@@ -434,6 +436,31 @@ export default function XuatKho() {
     if (e4) { setError(e4.message); return }
     setCreating(null)
     loadRows()
+  }
+
+  function openPrint(row) {
+    const warehouse = warehouses.find((w) => w.id === row.warehouse_id)
+    const lines = (row.issue_receipt_details || []).map((d) => {
+      const mat = materials.find((m) => m.id === d.material_id)
+      const prod = d.product_id ? products.find((p) => p.id === d.product_id) : null
+      return {
+        code: mat?.material_code || '',
+        name: (mat?.material_name || '') + (prod ? ` (${prod.product_code} - ${prod.product_name})` : ''),
+        unit: mat?.unit || '',
+        quantity: d.quantity,
+        unitPrice: d.unit_cost,
+        amount: d.amount,
+      }
+    })
+    setPrinting({
+      header: [
+        { label: 'Số phiếu', value: row.issue_no },
+        { label: 'Đơn hàng', value: row.orders?.order_code },
+        { label: 'Kho xuất', value: warehouse?.name },
+        { label: 'Doanh thu', value: row.orders?.revenue != null ? Number(row.orders.revenue).toLocaleString('vi-VN') : '' },
+      ],
+      lines,
+    })
   }
 
   async function postRow(row) {
@@ -720,6 +747,7 @@ export default function XuatKho() {
                     <td className="px-4 py-3">{(r.issue_receipt_details || []).length}</td>
                     <td className="px-4 py-3"><Badge variant={badge.variant}>{badge.label}</Badge></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap text-sm">
+                      <button onClick={() => openPrint(r)} title="In phiếu" className="inline text-gray-400 hover:text-brand-600 mr-2 align-middle"><Printer size={14} /></button>
                       {busyId === r.id ? (
                         <Loader2 size={15} className="inline animate-spin text-gray-400" />
                       ) : r.status === 'DRAFT' ? (
@@ -741,6 +769,9 @@ export default function XuatKho() {
           </table>
         )}
       </div>
+      {printing && (
+        <PrintReceipt type="xuat" header={printing.header} lines={printing.lines} totalLabel="Tổng giá vốn NVL" onClose={() => setPrinting(null)} />
+      )}
     </div>
   )
 }
