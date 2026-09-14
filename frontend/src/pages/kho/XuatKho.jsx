@@ -34,6 +34,7 @@ export default function XuatKho() {
 
   const [creating, setCreating] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [stockByMaterial, setStockByMaterial] = useState({}) // material_id -> { average_cost, balance_quantity } của kho đang chọn
 
   useEffect(() => { loadRows(); loadRefs() }, [])
 
@@ -111,6 +112,19 @@ export default function XuatKho() {
     if (!code) return null
     return materialByCode[String(code).trim().toLowerCase()] || null
   }
+
+  // Tải giá bình quân (Giá xuất kho) của toàn bộ NVL trong đúng Kho xuất đã
+  // chọn — dùng để hiển thị trước cho nhân viên xem, KHÔNG dùng số này để ghi
+  // sổ (lúc Ghi sổ, database tự lấy giá bình quân mới nhất tại đúng thời điểm đó).
+  async function loadStockForWarehouse(warehouseId) {
+    if (!warehouseId) { setStockByMaterial({}); return }
+    const { data, error } = await supabase.from('current_stock').select('material_id,average_cost,balance_quantity').eq('warehouse_id', warehouseId)
+    if (!error) {
+      const map = {}
+      ;(data || []).forEach((s) => { map[s.material_id] = s })
+      setStockByMaterial(map)
+    }
+  }
   // Danh sách món GỢI Ý cho 1 NVL cụ thể — chỉ gồm các món có dùng NVL đó
   // trong Cost món, để hiện thành dropdown lựa chọn (không phải toàn bộ danh mục món).
   function getCandidateProducts(material) {
@@ -121,6 +135,7 @@ export default function XuatKho() {
   }
 
   function openCreate() {
+    setStockByMaterial({})
     setCreating({
       header: { issue_no: genCode('PX'), order_code: genCode('DH'), issue_date: new Date().toISOString().slice(0, 10), warehouse_id: '', revenue_type_id: '', salesperson_id: '', note: '' },
       materialLines: Array.from({ length: 5 }, emptyMaterialLine),
@@ -160,6 +175,7 @@ export default function XuatKho() {
       materialLines,
       productSales,
     })
+    if (row.warehouse_id) loadStockForWarehouse(row.warehouse_id)
   }
 
   // Đảm bảo có 1 dòng "bán món" cho mã món này (tự thêm với SL=1 + giá bán
@@ -469,7 +485,7 @@ export default function XuatKho() {
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" /></div>
             <div><label className="block text-xs text-gray-500 mb-1">Kho xuất *</label>
               <select value={creating.header.warehouse_id} required
-                onChange={(e) => setCreating({ ...creating, header: { ...creating.header, warehouse_id: e.target.value } })}
+                onChange={(e) => { setCreating({ ...creating, header: { ...creating.header, warehouse_id: e.target.value } }); loadStockForWarehouse(e.target.value) }}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
                 <option value="">-- Chọn --</option>
                 {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -545,7 +561,17 @@ export default function XuatKho() {
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <ClipboardPaste size={15} /> Gõ Mã NVL xong → ô "Món tương ứng" hiện gợi ý chỉ gồm món có dùng NVL đó. Chọn 1 món → chỉ gán cho dòng này + các dòng khác bạn đã gõ sẵn Mã NVL thuộc đúng công thức (không tự thêm dòng mới). SL bán của món sửa ở bảng trên. Muốn tự sinh đủ toàn bộ NVL theo công thức, dùng nút "Tính lại NVL cho tất cả món".
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3 items-center">
+              <div className="text-sm">
+                <span className="text-gray-400">Giá vốn tạm tính: </span>
+                <span className="font-semibold text-ink">
+                  {resolvedMaterialLines.reduce((sum, l) => {
+                    const stock = l.material ? stockByMaterial[l.material.id] : null
+                    const unitCost = stock ? Number(stock.average_cost) : 0
+                    return sum + unitCost * (Number(l.quantity) || 0)
+                  }, 0).toLocaleString('vi-VN')}
+                </span>
+              </div>
               <button onClick={computeMaterialNeeds} className="inline-flex items-center gap-2 text-xs text-brand-600 hover:underline">
                 <Calculator size={14} /> Tính lại NVL cho tất cả món
               </button>
@@ -560,6 +586,8 @@ export default function XuatKho() {
                 <th className="px-3 py-2 text-xs text-gray-400 uppercase">Tên NVL</th>
                 <th className="px-3 py-2 text-xs text-gray-400 uppercase w-20">ĐVT</th>
                 <th className="px-3 py-2 text-xs text-gray-400 uppercase w-28 text-right">SL thực xuất</th>
+                <th className="px-3 py-2 text-xs text-gray-400 uppercase w-32 text-right">Giá xuất kho</th>
+                <th className="px-3 py-2 text-xs text-gray-400 uppercase w-32 text-right">Thành tiền</th>
                 <th className="px-3 py-2 text-xs text-gray-400 uppercase w-40">Món tương ứng</th>
                 <th className="px-3 py-2 w-10"></th>
               </tr>
@@ -570,6 +598,10 @@ export default function XuatKho() {
                 const productInvalid = l.productCode && !l.product
                 const candidateProducts = getCandidateProducts(l.material)
                 const productListId = candidateProducts.length > 0 ? `products-suggest-${idx}` : 'products-datalist-xk-mat'
+                const stock = l.material ? stockByMaterial[l.material.id] : null
+                const unitCost = stock ? Number(stock.average_cost) : null
+                const lineAmount = unitCost !== null ? unitCost * (Number(l.quantity) || 0) : null
+                const notEnoughStock = stock && Number(l.quantity) > Number(stock.balance_quantity)
                 return (
                   <tr key={idx} className="border-b border-gray-50 last:border-0">
                     <td className="px-3 py-1 text-xs text-gray-400">{idx + 1}</td>
@@ -593,6 +625,12 @@ export default function XuatKho() {
                         onPaste={(e) => handleMatPaste(e, idx)}
                         onKeyDown={(e) => handleMatQtyKeyDown(e, idx)} onFocus={selectAll}
                         className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right font-medium" />
+                    </td>
+                    <td className={`px-3 py-1.5 text-right ${notEnoughStock ? 'text-red-500' : 'text-gray-600'}`}>
+                      {unitCost !== null ? Number(unitCost).toLocaleString('vi-VN') : (l.material ? <span className="text-gray-300 text-xs">Chưa có tồn</span> : '')}
+                    </td>
+                    <td className={`px-3 py-1.5 text-right font-medium ${notEnoughStock ? 'text-red-500' : 'text-ink'}`}>
+                      {lineAmount !== null ? Number(lineAmount).toLocaleString('vi-VN') : ''}
                     </td>
                     <td className="px-1 py-1">
                       <div className="flex items-center gap-1">
