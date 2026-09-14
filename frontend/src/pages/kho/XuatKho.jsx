@@ -457,7 +457,7 @@ export default function XuatKho() {
         { label: 'Số phiếu', value: row.issue_no },
         { label: 'Đơn hàng', value: row.orders?.order_code },
         { label: 'Kho xuất', value: warehouse?.name },
-        { label: 'Doanh thu', value: row.orders?.revenue != null ? Number(row.orders.revenue).toLocaleString('vi-VN') : '' },
+        { label: 'Doanh thu', value: row.orders?.revenue != null ? Number(row.orders.revenue).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : '' },
       ],
       lines,
     })
@@ -540,7 +540,7 @@ export default function XuatKho() {
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm mb-4">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
             <div className="text-sm text-gray-500">Món trong phiếu xuất này (tự thêm khi bạn gán "Món tương ứng" ở lưới NVL bên dưới) — hệ thống sẽ tự tạo Đơn hàng thật khi Lưu.</div>
-            <div className="text-sm"><span className="text-gray-400">Doanh thu tạm tính: </span><span className="font-semibold text-ink">{totalRevenue.toLocaleString('vi-VN')}</span></div>
+            <div className="text-sm"><span className="text-gray-400">Doanh thu tạm tính: </span><span className="font-semibold text-ink">{totalRevenue.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</span></div>
           </div>
           {productSaleEntries.length === 0 ? (
             <div className="p-6 text-center text-sm text-gray-400">Chưa có món nào — xuống lưới NVL bên dưới, gõ mã NVL hoặc Món tương ứng để bắt đầu.</div>
@@ -573,7 +573,7 @@ export default function XuatKho() {
                           onChange={(e) => updateProductSale(s.code, 'selling_price', e.target.value)}
                           className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                       </td>
-                      <td className="px-3 py-1.5 text-right font-medium text-ink">{revenue > 0 ? revenue.toLocaleString('vi-VN') : ''}</td>
+                      <td className="px-3 py-1.5 text-right font-medium text-ink">{revenue > 0 ? revenue.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : ''}</td>
                       <td className="px-2 py-1 text-center"><button onClick={() => removeProductSale(s.code)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button></td>
                     </tr>
                   )
@@ -596,7 +596,7 @@ export default function XuatKho() {
                     const stock = l.material ? stockByMaterial[l.material.id] : null
                     const unitCost = stock ? Number(stock.average_cost) : 0
                     return sum + unitCost * (Number(l.quantity) || 0)
-                  }, 0).toLocaleString('vi-VN')}
+                  }, 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}
                 </span>
               </div>
               <button onClick={computeMaterialNeeds} className="inline-flex items-center gap-2 text-xs text-brand-600 hover:underline">
@@ -654,10 +654,10 @@ export default function XuatKho() {
                         className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right font-medium" />
                     </td>
                     <td className={`px-3 py-1.5 text-right ${notEnoughStock ? 'text-red-500' : 'text-gray-600'}`}>
-                      {unitCost !== null ? Number(unitCost).toLocaleString('vi-VN') : (l.material ? <span className="text-gray-300 text-xs">Chưa có tồn</span> : '')}
+                      {unitCost !== null ? Number(unitCost).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : (l.material ? <span className="text-gray-300 text-xs">Chưa có tồn</span> : '')}
                     </td>
                     <td className={`px-3 py-1.5 text-right font-medium ${notEnoughStock ? 'text-red-500' : 'text-ink'}`}>
-                      {lineAmount !== null ? Number(lineAmount).toLocaleString('vi-VN') : ''}
+                      {lineAmount !== null ? Number(lineAmount).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : ''}
                     </td>
                     <td className="px-1 py-1">
                       <div className="flex items-center gap-1">
@@ -732,7 +732,7 @@ export default function XuatKho() {
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="text-xs text-gray-400 mb-1">Tổng doanh thu</div>
-              <div className="text-lg font-semibold text-ink">{totalRevenue.toLocaleString('vi-VN')}</div>
+              <div className="text-lg font-semibold text-ink">{totalRevenue.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</div>
             </div>
           </div>
         )
@@ -764,7 +764,7 @@ export default function XuatKho() {
                   <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
                     <td className="px-4 py-3 font-medium text-ink whitespace-nowrap">{r.issue_no}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{r.orders?.order_code}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">{Number(r.orders?.revenue || 0).toLocaleString('vi-VN')}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{Number(r.orders?.revenue || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
                     <td className="px-4 py-3">{(r.issue_receipt_details || []).length}</td>
                     <td className="px-4 py-3"><Badge variant={badge.variant}>{badge.label}</Badge></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap text-sm">

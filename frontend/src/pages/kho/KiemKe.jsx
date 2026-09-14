@@ -188,7 +188,7 @@ export default function KiemKe() {
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50 text-sm">
               <div className="text-gray-500">{creating.lines.length} NVL đang có tồn trong kho này</div>
               <div className={varianceCount > 0 ? 'text-red-500' : 'text-gray-400'}>
-                {varianceCount} NVL có chênh lệch{varianceCount > 0 && ` · Giá trị chênh lệch: ${varianceValue.toLocaleString('vi-VN')}`}
+                {varianceCount} NVL có chênh lệch{varianceCount > 0 && ` · Giá trị chênh lệch: ${varianceValue.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}`}
               </div>
             </div>
             <table className="w-full text-sm">
@@ -219,7 +219,7 @@ export default function KiemKe() {
                       {l.variance !== 0 ? (l.variance > 0 ? '+' : '') + l.variance.toLocaleString('vi-VN') : '—'}
                     </td>
                     <td className={`px-3 py-1.5 text-right ${l.variance !== 0 ? 'text-red-500' : 'text-gray-300'}`}>
-                      {l.variance !== 0 ? (l.variance * l.unit_cost).toLocaleString('vi-VN') : '—'}
+                      {l.variance !== 0 ? (l.variance * l.unit_cost).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : '—'}
                     </td>
                   </tr>
                 ))}

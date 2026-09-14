@@ -133,8 +133,8 @@ export default function SoKho() {
                     <td className="px-4 py-3">{matLabel(s.material_id)}</td>
                     <td className="px-4 py-3">{whLabel(s.warehouse_id)}</td>
                     <td className="px-4 py-3 text-right">{Number(s.balance_quantity).toLocaleString('vi-VN')}</td>
-                    <td className="px-4 py-3 text-right">{Number(s.average_cost).toLocaleString('vi-VN')}</td>
-                    <td className="px-4 py-3 text-right font-medium">{Number(s.balance_value).toLocaleString('vi-VN')}</td>
+                    <td className="px-4 py-3 text-right">{Number(s.average_cost).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
+                    <td className="px-4 py-3 text-right font-medium">{Number(s.balance_value).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
                   </tr>
                 ))}
               </tbody>
@@ -191,10 +191,10 @@ export default function SoKho() {
                       <td className="px-4 py-3 whitespace-nowrap">{TXN_LABEL[h.transaction_type] || h.transaction_type}</td>
                       <td className="px-4 py-3 text-right">{Number(h.quantity_in) > 0 ? Number(h.quantity_in).toLocaleString('vi-VN') : ''}</td>
                       <td className="px-4 py-3 text-right">{Number(h.quantity_out) > 0 ? Number(h.quantity_out).toLocaleString('vi-VN') : ''}</td>
-                      <td className="px-4 py-3 text-right">{h.unit_cost ? Number(h.unit_cost).toLocaleString('vi-VN') : ''}</td>
+                      <td className="px-4 py-3 text-right">{h.unit_cost ? Number(h.unit_cost).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : ''}</td>
                       <td className="px-4 py-3 text-right">{Number(h.balance_quantity).toLocaleString('vi-VN')}</td>
-                      <td className="px-4 py-3 text-right">{Number(h.average_cost).toLocaleString('vi-VN')}</td>
-                      <td className="px-4 py-3 text-right font-medium">{Number(h.balance_value).toLocaleString('vi-VN')}</td>
+                      <td className="px-4 py-3 text-right">{Number(h.average_cost).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
+                      <td className="px-4 py-3 text-right font-medium">{Number(h.balance_value).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
                     </tr>
                   ))}
                 </tbody>

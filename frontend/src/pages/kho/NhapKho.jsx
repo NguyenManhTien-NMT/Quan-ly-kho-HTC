@@ -462,7 +462,7 @@ export default function NhapKho() {
             <div className="flex gap-3 items-center">
               <div className="text-sm">
                 <span className="text-gray-400">Tổng tạm tính: </span>
-                <span className="font-semibold text-ink">{total.toLocaleString('vi-VN')}</span>
+                <span className="font-semibold text-ink">{total.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</span>
               </div>
               <div className="flex gap-2 text-xs">
                 <button onClick={() => addRows(1)} className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">+1 dòng</button>
@@ -528,7 +528,7 @@ export default function NhapKho() {
                           onFocus={selectAll}
                           className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                       </td>
-                      <td className="px-3 py-1 text-right font-medium text-ink">{amount > 0 ? amount.toLocaleString('vi-VN') : ''}</td>
+                      <td className="px-3 py-1 text-right font-medium text-ink">{amount > 0 ? amount.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : ''}</td>
                       <td className="px-2 py-1 text-center">
                         <button tabIndex={-1} onClick={() => removeLine(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
                       </td>
@@ -546,7 +546,7 @@ export default function NhapKho() {
             <div className="text-gray-500">
               {validCount} dòng hợp lệ{unresolvedCount > 0 && <span className="text-red-500"> · {unresolvedCount} dòng mã NVL không khớp</span>}
             </div>
-            <div className="font-medium text-ink">Tổng: {total.toLocaleString('vi-VN')}</div>
+            <div className="font-medium text-ink">Tổng: {total.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</div>
           </div>
         </div>
       </div>
@@ -585,7 +585,7 @@ export default function NhapKho() {
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="text-xs text-gray-400 mb-1">Tổng thành tiền</div>
-              <div className="text-lg font-semibold text-ink">{totalAmount.toLocaleString('vi-VN')}</div>
+              <div className="text-lg font-semibold text-ink">{totalAmount.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</div>
             </div>
           </div>
         )
@@ -619,7 +619,7 @@ export default function NhapKho() {
                     <td className="px-4 py-3 font-medium text-ink whitespace-nowrap">{r.receipt_no}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{r.receipt_date}</td>
                     <td className="px-4 py-3">{(r.purchase_receipt_details || []).length}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">{lineTotal.toLocaleString('vi-VN')}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{lineTotal.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
                     <td className="px-4 py-3"><Badge variant={badge.variant}>{badge.label}</Badge></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap text-sm">
                       <button onClick={() => openPrint(r)} className="inline-flex items-center gap-1 text-gray-500 hover:text-brand-600 mr-3 align-middle">
