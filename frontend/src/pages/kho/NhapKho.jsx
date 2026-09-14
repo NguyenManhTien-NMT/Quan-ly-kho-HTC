@@ -367,6 +367,17 @@ export default function NhapKho() {
     else loadReceipts()
   }
 
+  async function unpostAndEdit(receipt) {
+    if (!confirm(`Phiếu ${receipt.receipt_no} đã ghi sổ. Đưa về Nháp để sửa? Hệ thống sẽ tự hoàn tác đúng phần tồn kho đã cộng, sau khi sửa xong bạn cần bấm "Ghi sổ" lại.`)) return
+    setBusyId(receipt.id)
+    setError('')
+    const { error } = await supabase.rpc('unpost_purchase_receipt', { p_receipt_id: receipt.id, p_user_id: user.id })
+    setBusyId(null)
+    if (error) { setError(error.message); return }
+    await loadReceipts()
+    openEdit({ ...receipt, status: 'DRAFT' })
+  }
+
   async function cancelReceipt(receipt) {
     const reason = prompt(`Nhập lý do huỷ phiếu ${receipt.receipt_no} (bắt buộc để lưu vết):`)
     if (reason === null) return // bấm Huỷ hộp thoại
@@ -634,7 +645,11 @@ export default function NhapKho() {
                           <button onClick={() => postReceipt(r)} className="text-green-600 font-medium hover:underline">Ghi sổ (cập nhật kho)</button>
                         </>
                       ) : r.status === 'POSTED' ? (
-                        <button onClick={() => cancelReceipt(r)} className="text-red-500 hover:underline">Huỷ phiếu (hoàn tác kho)</button>
+                        <>
+                          <button onClick={() => unpostAndEdit(r)} className="text-brand-600 hover:underline">Sửa</button>
+                          <span className="text-gray-300 mx-1.5">|</span>
+                          <button onClick={() => cancelReceipt(r)} className="text-red-500 hover:underline">Huỷ phiếu (hoàn tác kho)</button>
+                        </>
                       ) : (
                         <span className="text-gray-300">—</span>
                       )}
