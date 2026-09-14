@@ -475,6 +475,17 @@ export default function XuatKho() {
     else loadRows()
   }
 
+  async function unpostAndEdit(row) {
+    if (!confirm(`Phiếu ${row.issue_no} đã ghi sổ. Đưa về Nháp để sửa? Hệ thống sẽ tự hoàn tác đúng phần tồn kho đã trừ (cả đơn hàng liên quan cũng về Nháp), sau khi sửa xong bạn cần bấm "Ghi sổ" lại.`)) return
+    setBusyId(row.id)
+    setError('')
+    const { error } = await supabase.rpc('unpost_issue_receipt', { p_issue_id: row.id, p_user_id: user.id })
+    setBusyId(null)
+    if (error) { setError(error.message); return }
+    await loadRows()
+    openEdit({ ...row, status: 'DRAFT' })
+  }
+
   async function cancelRow(row) {
     const reason = prompt(`Nhập lý do huỷ phiếu ${row.issue_no}:`)
     if (reason === null) return
@@ -780,7 +791,11 @@ export default function XuatKho() {
                           <button onClick={() => postRow(r)} className="text-green-600 font-medium hover:underline">Ghi sổ (cập nhật kho)</button>
                         </>
                       ) : r.status === 'POSTED' ? (
-                        <button onClick={() => cancelRow(r)} className="text-red-500 hover:underline">Huỷ phiếu (hoàn tác kho)</button>
+                        <>
+                          <button onClick={() => unpostAndEdit(r)} className="text-brand-600 hover:underline">Sửa</button>
+                          <span className="text-gray-300 mx-1.5">|</span>
+                          <button onClick={() => cancelRow(r)} className="text-red-500 hover:underline">Huỷ phiếu (hoàn tác kho)</button>
+                        </>
                       ) : (
                         <span className="text-gray-300">—</span>
                       )}
