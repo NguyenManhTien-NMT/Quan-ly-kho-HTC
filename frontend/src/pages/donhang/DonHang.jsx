@@ -361,6 +361,28 @@ export default function DonHang() {
         </div>
       </div>
 
+      {orders.length > 0 && (() => {
+        const totalRevenue = orders.reduce((s, o) => s + Number(o.revenue || 0), 0)
+        const totalCost = orders.reduce((s, o) => s + (o.order_details || []).reduce((s2, d) => s2 + Number(d.cost || 0), 0), 0)
+        const totalProfit = totalRevenue - totalCost
+        return (
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Tổng doanh thu ({orders.length} đơn)</div>
+              <div className="text-lg font-semibold text-ink">{totalRevenue.toLocaleString('vi-VN')}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Tổng giá vốn</div>
+              <div className="text-lg font-semibold text-ink">{totalCost.toLocaleString('vi-VN')}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="text-xs text-gray-400 mb-1">Tổng lợi nhuận</div>
+              <div className="text-lg font-semibold text-green-600">{totalProfit.toLocaleString('vi-VN')}</div>
+            </div>
+          </div>
+        )
+      })()}
+
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-3">{error}</div>}
 
       <div className="rounded-xl border border-gray-100 bg-white overflow-x-auto shadow-sm">
