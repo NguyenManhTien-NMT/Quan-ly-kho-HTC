@@ -52,10 +52,11 @@ const menu = [
     children: [
       { label: 'Nhập kho', to: '/kho/nhap-kho' },
       { label: 'Xuất kho', to: '/kho/xuat-kho' },
+      { label: 'Kiểm kê / Điều chỉnh', to: '/kho/kiem-ke' },
       { label: 'Sổ kho', to: '/kho/so-kho' },
     ],
   },
-  { label: 'Báo cáo', icon: BarChart3, disabled: true },
+  { label: 'Báo cáo', icon: BarChart3, to: '/bao-cao' },
 ]
 
 function MenuGroup({ item }) {
