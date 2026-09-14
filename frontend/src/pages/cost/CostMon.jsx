@@ -209,7 +209,7 @@ export default function CostMon() {
             </datalist>
             <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
               <div className="text-sm text-gray-500">
-                Giá bán hiện tại: <span className="font-medium text-ink">{selectedProduct ? Number(selectedProduct.selling_price || 0).toLocaleString('vi-VN') : '—'}</span>
+                Giá bán hiện tại: <span className="font-medium text-ink">{selectedProduct ? Number(selectedProduct.selling_price || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : '—'}</span>
               </div>
               <button onClick={handleSaveRecipe} disabled={saving}
                 className="inline-flex items-center gap-2 rounded-lg bg-brand-600 text-white px-4 py-2 text-sm font-medium hover:bg-brand-700 disabled:opacity-60">
@@ -222,7 +222,7 @@ export default function CostMon() {
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
               <div className="text-sm text-gray-500 mb-1">Cost lý thuyết (theo giá NVL bình quân hiện tại)</div>
               <div className="text-2xl font-semibold text-ink">
-                {theoreticalCost !== null ? Number(theoreticalCost).toLocaleString('vi-VN') : '—'}
+                {theoreticalCost !== null ? Number(theoreticalCost).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : '—'}
               </div>
               {selectedProduct && theoreticalCost !== null && (
                 <div className="text-xs text-gray-400 mt-1">

@@ -168,9 +168,9 @@ export default function CostMam() {
                   <tr key={m.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
                     <td className="px-4 py-3 font-medium text-ink">{m.menu_code}</td>
                     <td className="px-4 py-3">{m.menu_name}</td>
-                    <td className="px-4 py-3 text-right">{Number(m.selling_price || 0).toLocaleString('vi-VN')}</td>
-                    <td className="px-4 py-3 text-right">{cost.toLocaleString('vi-VN')}</td>
-                    <td className="px-4 py-3 text-right">{profit.toLocaleString('vi-VN')}</td>
+                    <td className="px-4 py-3 text-right">{Number(m.selling_price || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
+                    <td className="px-4 py-3 text-right">{cost.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
+                    <td className="px-4 py-3 text-right">{profit.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
                     <td className="px-4 py-3 text-right">{pct.toFixed(1)}%</td>
                     <td className="px-4 py-3 text-right">
                       <button onClick={() => openEditLines(m)} className="text-brand-600 hover:underline">Sửa món</button>
