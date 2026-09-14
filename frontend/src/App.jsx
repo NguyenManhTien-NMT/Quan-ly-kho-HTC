@@ -12,6 +12,7 @@ import KhachHang from './pages/danhmuc/KhachHang'
 import NhanVienKinhDoanh from './pages/danhmuc/NhanVienKinhDoanh'
 import Kho from './pages/danhmuc/Kho'
 import LoaiDoanhThu from './pages/danhmuc/LoaiDoanhThu'
+import TaiKhoan from './pages/danhmuc/TaiKhoan'
 import NhapKho from './pages/kho/NhapKho'
 import XuatKho from './pages/kho/XuatKho'
 import KiemKe from './pages/kho/KiemKe'
@@ -21,9 +22,10 @@ import CostMam from './pages/cost/CostMam'
 import DonHang from './pages/donhang/DonHang'
 import BaoCao from './pages/baocao/BaoCao'
 
-function ProtectedLayout({ children }) {
+function ProtectedLayout({ children, allowedRoles }) {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
+  if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/" replace />
   return (
     <div className="flex">
       <Sidebar />
@@ -47,6 +49,7 @@ export default function App() {
         <Route path="/danh-muc/nhan-vien-kinh-doanh" element={<ProtectedLayout><NhanVienKinhDoanh /></ProtectedLayout>} />
         <Route path="/danh-muc/kho" element={<ProtectedLayout><Kho /></ProtectedLayout>} />
         <Route path="/danh-muc/loai-doanh-thu" element={<ProtectedLayout><LoaiDoanhThu /></ProtectedLayout>} />
+        <Route path="/danh-muc/tai-khoan" element={<ProtectedLayout allowedRoles={['admin', 'quan_ly']}><TaiKhoan /></ProtectedLayout>} />
         <Route path="/kho/nhap-kho" element={<ProtectedLayout><NhapKho /></ProtectedLayout>} />
         <Route path="/kho/xuat-kho" element={<ProtectedLayout><XuatKho /></ProtectedLayout>} />
         <Route path="/kho/kiem-ke" element={<ProtectedLayout><KiemKe /></ProtectedLayout>} />
