@@ -22,7 +22,8 @@ export default function PrintReceipt({ type, header, lines, totalLabel = 'Tổng
 
         <div className="print-area p-8 text-sm">
           <div className="text-center mb-6">
-            <div className="font-semibold text-base">HTC - QL - KHO</div>
+            <img src="/logo-print.png" alt="Phú Tài Đức Group" className="h-10 mx-auto mb-2" />
+            <div className="font-semibold text-base">Khách sạn White</div>
             <div className="text-lg font-bold mt-2 tracking-wide">{title}</div>
           </div>
 
