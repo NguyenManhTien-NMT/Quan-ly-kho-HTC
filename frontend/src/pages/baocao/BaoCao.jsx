@@ -136,6 +136,19 @@ export default function BaoCao() {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                <td className="px-3 py-2" colSpan={3}>Tổng cộng ({rows.length} NVL)</td>
+                <td className="px-3 py-2 text-right">{n(rows.reduce((s, r) => s + Number(r.opening_qty || 0), 0))}</td>
+                <td className="px-3 py-2 text-right">{n(rows.reduce((s, r) => s + Number(r.opening_value || 0), 0))}</td>
+                <td className="px-3 py-2 text-right text-green-700">{n(rows.reduce((s, r) => s + Number(r.in_qty || 0), 0))}</td>
+                <td className="px-3 py-2 text-right text-green-700">{n(rows.reduce((s, r) => s + Number(r.in_value || 0), 0))}</td>
+                <td className="px-3 py-2 text-right text-red-600">{n(rows.reduce((s, r) => s + Number(r.out_qty || 0), 0))}</td>
+                <td className="px-3 py-2 text-right text-red-600">{n(rows.reduce((s, r) => s + Number(r.out_value || 0), 0))}</td>
+                <td className="px-3 py-2 text-right">{n(rows.reduce((s, r) => s + Number(r.closing_qty || 0), 0))}</td>
+                <td className="px-3 py-2 text-right">{n(rows.reduce((s, r) => s + Number(r.closing_value || 0), 0))}</td>
+              </tr>
+            </tfoot>
           </table>
         ) : (
           <table className="w-full text-sm">
@@ -166,6 +179,22 @@ export default function BaoCao() {
                 )
               })}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                <td className="px-4 py-3">Tổng cộng</td>
+                <td className="px-4 py-3 text-right">{rows.reduce((s, r) => s + Number(r.order_count || 0), 0)}</td>
+                <td className="px-4 py-3 text-right">{n(rows.reduce((s, r) => s + Number(r.total_revenue || 0), 0))}</td>
+                <td className="px-4 py-3 text-right">{n(rows.reduce((s, r) => s + Number(r.total_cost || 0), 0))}</td>
+                <td className="px-4 py-3 text-right">{n(rows.reduce((s, r) => s + Number(r.total_profit || 0), 0))}</td>
+                <td className="px-4 py-3 text-right">
+                  {(() => {
+                    const totalRev = rows.reduce((s, r) => s + Number(r.total_revenue || 0), 0)
+                    const totalProfit = rows.reduce((s, r) => s + Number(r.total_profit || 0), 0)
+                    return totalRev > 0 ? ((totalProfit / totalRev) * 100).toFixed(1) + '%' : '—'
+                  })()}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         )}
       </div>
