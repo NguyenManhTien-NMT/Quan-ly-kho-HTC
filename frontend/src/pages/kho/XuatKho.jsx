@@ -165,9 +165,9 @@ export default function XuatKho() {
   function addMaterialRows(n) { setCreating((c) => ({ ...c, materialLines: [...c.materialLines, ...Array.from({ length: n }, emptyMaterialLine)] })) }
   function removeMaterialLine(idx) { setCreating((c) => ({ ...c, materialLines: c.materialLines.filter((_, i) => i !== idx) })) }
 
-  // Gán "Món tương ứng" ở 1 dòng -> tự nhảy TOÀN BỘ NVL theo Cost món, nhân
-  // đúng SL bán của món đó lấy từ bảng "Món trong phiếu xuất" (tự sinh ngay
-  // phía trên khi gán món lần đầu — không cần tạo Đơn hàng ở trang khác).
+  // Gán "Món tương ứng" ở 1 dòng -> CHỈ gán món cho đúng dòng đó, và cho các
+  // dòng KHÁC đã gõ sẵn Mã NVL (nhưng chưa chọn Món) nếu đúng NVL đó thuộc
+  // công thức món này — KHÔNG tự sinh thêm dòng mới, không đụng dòng trống hẳn.
   function expandRecipeForRow(idx, rawCode) {
     const product = resolveProduct(rawCode)
     if (!product) return
@@ -176,32 +176,28 @@ export default function XuatKho() {
       setError(`Món "${product.product_name}" chưa có Cost món (công thức) — vào Cost món khai báo trước, hoặc tự gõ tay NVL cho dòng này.`)
       return
     }
+    const recipeByCode = {} // material_code (lowercase) -> quantity định lượng/suất
+    recipeLines.forEach((rl) => {
+      const mat = materialById[rl.material_id]
+      if (mat) recipeByCode[mat.material_code.trim().toLowerCase()] = rl.quantity
+    })
+
     setCreating((c) => {
       const sale = c.productSales[rawCode.trim()]
       const soldQty = Number(sale?.quantity) || 0
-      if (!(soldQty > 0)) return c
-
-      let lines = [...c.materialLines]
-      const existingForProduct = new Set(
-        lines
-          .filter((l) => l.productCode && resolveProduct(l.productCode)?.id === product.id && l.code)
-          .map((l) => l.code.trim().toLowerCase())
-      )
-      const newRows = []
-      recipeLines.forEach((rl) => {
-        const mat = materialById[rl.material_id]
-        if (!mat) return
-        if (existingForProduct.has(mat.material_code.trim().toLowerCase())) return
-        newRows.push({ productCode: rawCode, code: mat.material_code, quantity: String(Math.round(rl.quantity * soldQty * 1000) / 1000) })
+      const lines = c.materialLines.map((l, i) => {
+        if (i === idx) return { ...l, productCode: rawCode }
+        if (l.productCode) return l // đã gán món khác rồi, không ghi đè
+        if (!l.code) return l // dòng trống hẳn -> bỏ qua, không tự điền
+        const codeNorm = l.code.trim().toLowerCase()
+        const recipeQty = recipeByCode[codeNorm]
+        if (recipeQty === undefined) return l // NVL này không thuộc công thức món này
+        const updated = { ...l, productCode: rawCode }
+        if (!l.quantity && soldQty > 0) {
+          updated.quantity = String(Math.round(recipeQty * soldQty * 1000) / 1000)
+        }
+        return updated
       })
-      if (newRows.length === 0) return c
-
-      if (!lines[idx].code) {
-        lines[idx] = { ...lines[idx], productCode: rawCode, code: newRows[0].code, quantity: newRows[0].quantity }
-        lines.splice(idx + 1, 0, ...newRows.slice(1))
-      } else {
-        lines.splice(idx + 1, 0, ...newRows)
-      }
       return { ...c, materialLines: lines }
     })
     setError('')
@@ -460,7 +456,7 @@ export default function XuatKho() {
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <ClipboardPaste size={15} /> Gõ Mã NVL xong → ô "Món tương ứng" sẽ hiện gợi ý chỉ gồm các món có dùng NVL đó để bạn chọn. Chọn xong → tự nhảy các NVL còn lại theo Cost món (nhân đúng SL bán ở bảng trên). Bấm + để thêm dòng NVL cho đúng món. Vẫn gõ tay/dán từ Excel/Tab/mũi tên như lưới Nhập kho.
+              <ClipboardPaste size={15} /> Gõ Mã NVL xong → ô "Món tương ứng" hiện gợi ý chỉ gồm món có dùng NVL đó. Chọn 1 món → chỉ gán cho dòng này + các dòng khác bạn đã gõ sẵn Mã NVL thuộc đúng công thức (không tự thêm dòng mới). SL bán của món sửa ở bảng trên. Muốn tự sinh đủ toàn bộ NVL theo công thức, dùng nút "Tính lại NVL cho tất cả món".
             </div>
             <div className="flex gap-2">
               <button onClick={computeMaterialNeeds} className="inline-flex items-center gap-2 text-xs text-brand-600 hover:underline">
