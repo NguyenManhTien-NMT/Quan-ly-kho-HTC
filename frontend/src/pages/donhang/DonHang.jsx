@@ -319,7 +319,7 @@ export default function DonHang() {
                       <input type="text" inputMode="decimal" value={l.discount} onChange={(e) => updateLine(idx, 'discount', e.target.value)}
                         className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-right" />
                     </td>
-                    <td className="px-3 py-1 text-right font-medium text-ink">{revenue > 0 ? revenue.toLocaleString('vi-VN') : ''}</td>
+                    <td className="px-3 py-1 text-right font-medium text-ink">{revenue > 0 ? revenue.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : ''}</td>
                     <td className="px-2 py-1 text-center">
                       <button onClick={() => removeLine(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
                     </td>
@@ -338,7 +338,7 @@ export default function DonHang() {
             <div className="text-gray-500">
               {validCount} dòng hợp lệ{unresolvedCount > 0 && <span className="text-red-500"> · {unresolvedCount} dòng không khớp</span>}
             </div>
-            <div className="font-medium text-ink">Tổng doanh thu: {totalRevenue.toLocaleString('vi-VN')}</div>
+            <div className="font-medium text-ink">Tổng doanh thu: {totalRevenue.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</div>
           </div>
         </div>
       </div>
@@ -370,15 +370,15 @@ export default function DonHang() {
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="text-xs text-gray-400 mb-1">Tổng doanh thu ({orders.length} đơn)</div>
-              <div className="text-lg font-semibold text-ink">{totalRevenue.toLocaleString('vi-VN')}</div>
+              <div className="text-lg font-semibold text-ink">{totalRevenue.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</div>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="text-xs text-gray-400 mb-1">Tổng giá vốn</div>
-              <div className="text-lg font-semibold text-ink">{totalCost.toLocaleString('vi-VN')}</div>
+              <div className="text-lg font-semibold text-ink">{totalCost.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</div>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="text-xs text-gray-400 mb-1">Tổng lợi nhuận</div>
-              <div className="text-lg font-semibold text-green-600">{totalProfit.toLocaleString('vi-VN')}</div>
+              <div className="text-lg font-semibold text-green-600">{totalProfit.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</div>
             </div>
           </div>
         )
@@ -419,9 +419,9 @@ export default function DonHang() {
                     <td className="px-4 py-3 whitespace-nowrap">{o.order_date}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{salesperson?.full_name || '—'}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{revenueType?.name || '—'}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">{Number(o.revenue || 0).toLocaleString('vi-VN')}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">{cost > 0 ? cost.toLocaleString('vi-VN') : '—'}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">{profit !== 0 ? profit.toLocaleString('vi-VN') : '—'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{Number(o.revenue || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{cost > 0 ? cost.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : '—'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{profit !== 0 ? profit.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : '—'}</td>
                     <td className="px-4 py-3"><Badge variant={badge.variant}>{badge.label}</Badge></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap text-sm">
                       <button onClick={() => setViewing(o)} className="inline-flex items-center gap-1 text-gray-500 hover:text-brand-600 mr-3 align-middle">
@@ -483,10 +483,10 @@ export default function DonHang() {
                       <tr key={idx} className="border-b border-gray-50 last:border-0">
                         <td className="px-2 py-1.5">{name || '—'}</td>
                         <td className="px-2 py-1.5 text-right">{Number(d.quantity).toLocaleString('vi-VN')}</td>
-                        <td className="px-2 py-1.5 text-right">{Number(d.selling_price || 0).toLocaleString('vi-VN')}</td>
-                        <td className="px-2 py-1.5 text-right">{Number(d.revenue || 0).toLocaleString('vi-VN')}</td>
-                        <td className="px-2 py-1.5 text-right">{d.cost != null ? Number(d.cost).toLocaleString('vi-VN') : '—'}</td>
-                        <td className={`px-2 py-1.5 text-right font-medium ${profit < 0 ? 'text-red-500' : ''}`}>{d.profit != null ? profit.toLocaleString('vi-VN') : '—'}</td>
+                        <td className="px-2 py-1.5 text-right">{Number(d.selling_price || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
+                        <td className="px-2 py-1.5 text-right">{Number(d.revenue || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}</td>
+                        <td className="px-2 py-1.5 text-right">{d.cost != null ? Number(d.cost).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : '—'}</td>
+                        <td className={`px-2 py-1.5 text-right font-medium ${profit < 0 ? 'text-red-500' : ''}`}>{d.profit != null ? profit.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : '—'}</td>
                       </tr>
                     )
                   })}
